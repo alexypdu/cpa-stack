@@ -1,0 +1,43 @@
+# macOS / editor noise
+.DS_Store
+._*
+*.swp
+*.swo
+
+# Environment and local secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
+
+# CLIProxyAPI local runtime config and auth state
+cpa/config.yaml
+cpa/auths/
+cpa/logs/
+cpa/**/*.log
+cpa/**/*.cds
+
+# Keep templates trackable
+!cpa/config.yaml.default
+
+# Usage keeper runtime data
+keeper/app.db
+keeper/app.db-*
+keeper/*.db
+keeper/*.db-*
+keeper/backups/
+keeper/logs/
+
+# General logs / caches
+logs/
+*.log
+*.tmp
+tmp/
+cache/
+.cache/
+
+# Docker Compose local override files
+docker-compose.override.yml
+compose.override.yml

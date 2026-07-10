@@ -1,0 +1,38 @@
+services:
+  cli-proxy-api:
+    image: eceasy/cli-proxy-api:latest
+    container_name: cli-proxy-api
+    restart: unless-stopped
+    ports:
+      - '8317:8317'
+      - '1455:1455'
+    volumes:
+      - ./cpa/config.yaml:/CLIProxyAPI/config.yaml
+      - ./cpa/auths:/root/.cli-proxy-api
+      - ./cpa/logs:/CLIProxyAPI/logs
+    networks:
+      - cpa-network
+
+  cpa-usage-keeper:
+    image: ghcr.io/willxup/cpa-usage-keeper:latest
+    container_name: cpa-usage-keeper
+    restart: unless-stopped
+    depends_on:
+      - cli-proxy-api
+    ports:
+      - '8318:8080'
+    environment:
+      TZ: America/New_York
+      CPA_BASE_URL: http://cli-proxy-api:8317
+      CPA_MANAGEMENT_KEY: ${CPA_MANAGEMENT_KEY:?CPA_MANAGEMENT_KEY must be set}
+      REDIS_QUEUE_ADDR: cli-proxy-api:8317
+      AUTH_ENABLED: 'true'
+      LOGIN_PASSWORD: ${CPA_KEEPER_LOGIN_PASSWORD:?CPA_KEEPER_LOGIN_PASSWORD must be set}
+    volumes:
+      - ./keeper:/data
+    networks:
+      - cpa-network
+
+networks:
+  cpa-network:
+    driver: bridge
