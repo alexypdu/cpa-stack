@@ -16,6 +16,7 @@
 cpa/config.yaml
 cpa/auths/
 cpa/logs/
+cpa/plugins/
 cpa/**/*.log
 cpa/**/*.cds
 

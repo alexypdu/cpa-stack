@@ -7,9 +7,10 @@ services:
       - '8317:8317'
       - '1455:1455'
     volumes:
+      - ./cpa/auths:/CLIProxyAPI/.cli-proxy-api
       - ./cpa/config.yaml:/CLIProxyAPI/config.yaml
-      - ./cpa/auths:/root/.cli-proxy-api
       - ./cpa/logs:/CLIProxyAPI/logs
+      - ./cpa/plugins:/CLIProxyAPI/plugins
     networks:
       - cpa-network
 
