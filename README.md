@@ -1,102 +1,80 @@
 # CPA Stack
 
-This directory runs CLIProxyAPI (CPA) and CPA Usage Keeper together with Docker Compose on Colima.
+A local Docker Compose deployment of [CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI) (CPA) and [CPA Usage Keeper](https://github.com/Willxup/cpa-usage-keeper).
+
+CPA accepts authenticated client requests and routes them through configured provider credentials. Keeper consumes CPA's usage feed, persists usage data in SQLite, and provides a local dashboard. This repository contains deployment configuration and local operational state; it does not contain the source code for either service.
 
 ## Architecture
 
-Homebrew starts Colima, Colima provides the Docker engine, and Docker Compose runs the two app containers.
-
-```text
-brew services
-└── colima
-    └── docker compose
-        ├── cli-proxy-api
-        └── cpa-usage-keeper
+```mermaid
+flowchart LR
+    Client[API client] -->|client API key| CPA[CLIProxyAPI\n127.0.0.1:8317]
+    CPA -->|provider credential| Provider[Upstream provider]
+    CPA -->|usage feed + management API| Keeper[CPA Usage Keeper\n127.0.0.1:8318]
+    Browser[Web browser] -->|Keeper login password| Keeper
 ```
 
-The old Homebrew-managed `cliproxyapi` service should stay stopped/uninstalled so it does not conflict with Docker CPA on port `8317`.
+Docker Compose runs both services on a private bridge network. Published host ports bind to `127.0.0.1`, so they are available only on the local Mac by default.
 
-## Files
+| Host address | Purpose |
+| --- | --- |
+| `http://127.0.0.1:8317` | CPA client API |
+| `http://127.0.0.1:8318` | Keeper dashboard and API |
+| `127.0.0.1:1455` | CPA Codex OAuth callback |
 
-```text
-/Users/alexdu/repos/cpa-stack/
-├── .gitignore
-├── README.md
-├── docker-compose.yml
-├── cpa/
-│   ├── config.yaml.default
-│   ├── config.yaml
-│   ├── auths/
-│   └── logs/
-└── keeper/
-```
+Keeper connects to CPA over the Compose network. CPA must therefore accept management requests from another container even though its host-published ports remain loopback-only.
 
-Important paths:
+## Prerequisites
 
-```text
-cpa/config.yaml.default  Trackable CPA config template
-cpa/config.yaml          Local CPA config mounted into Docker CPA; ignored by Git
-cpa/auths/               Local CPA auth files mounted into the CPA container; ignored by Git
-cpa/logs/                CPA logs; ignored by Git
-keeper/                  CPA Usage Keeper SQLite data, logs, and backups; runtime data ignored by Git
-```
+The supported setup uses macOS, Homebrew, and Colima.
 
-`cpa/config.yaml` contains API keys and management secrets. Keep it local and use `cpa/config.yaml.default` as the clean template for future migrations.
-
-The original Homebrew CPA files were left separate:
-
-```text
-/opt/homebrew/etc/cliproxyapi.conf
-/Users/alexdu/.cli-proxy-api
-```
-
-## URLs
-
-```text
-CPA:    http://127.0.0.1:8317
-Keeper: http://127.0.0.1:8318
-```
-
-Keeper listens on `8080` inside the container, but Docker publishes it on host port `8318`.
-
-## Secrets
-
-Secrets are not stored in `docker-compose.yml`. Compose reads these exported environment variables from the shell when containers are created:
+Install the required tools:
 
 ```sh
-CPA_MANAGEMENT_KEY
-CPA_KEEPER_LOGIN_PASSWORD
+brew install colima docker docker-compose git
 ```
 
-These should be exported by your sourced shell secret file, which is sourced from `~/.zshrc`.
-
-`CPA_MANAGEMENT_KEY` is used by Keeper to call CPA management APIs.
-
-`CPA_KEEPER_LOGIN_PASSWORD` is used by you to log into the Keeper dashboard at `http://127.0.0.1:8318`.
-
-In a new normal terminal window, `.zshrc` should already be loaded. To verify without printing secret values:
+Start Colima and verify Docker Compose is available:
 
 ```sh
-printenv CPA_MANAGEMENT_KEY >/dev/null && echo "CPA_MANAGEMENT_KEY set"
-printenv CPA_KEEPER_LOGIN_PASSWORD >/dev/null && echo "CPA_KEEPER_LOGIN_PASSWORD set"
+colima start
+docker version
+docker compose version
 ```
 
-If running commands from a non-interactive shell, explicitly source `.zshrc` first:
+Run all remaining commands from the repository root.
+
+## Quick start
+
+### 1. Create local files and directories
 
 ```sh
-source ~/.zshrc && docker compose ps
+cp .env.example .env
+cp cpa/config.yaml.example cpa/config.yaml
+mkdir -p cpa/auths cpa/logs cpa/plugins keeper
 ```
 
-## First-Time Setup
+These local files and runtime directories are ignored by Git.
 
-Create the local runtime files and directories before starting from a fresh checkout:
+### 2. Configure Compose secrets
 
-```sh
-cp cpa/config.yaml.default cpa/config.yaml
-mkdir -p cpa/auths cpa/logs keeper
+Edit `.env` and replace both placeholders:
+
+```dotenv
+CPA_MANAGEMENT_KEY='replace-with-a-strong-management-key'
+CPA_KEEPER_LOGIN_PASSWORD='replace-with-a-strong-login-password'
 ```
 
-Edit `cpa/config.yaml` with local secrets and Docker-specific values:
+Docker Compose automatically loads `.env` from the repository root. No `source` command is required.
+
+- `CPA_MANAGEMENT_KEY` allows Keeper to call CPA's privileged management API.
+- `CPA_KEEPER_LOGIN_PASSWORD` protects Keeper's web interface.
+
+Keep the single quotes around each value so characters such as `$` remain literal during Compose interpolation. Shell environment variables take precedence over values in `.env`. Do not commit `.env` or share rendered Compose output, which can contain resolved secrets.
+
+### 3. Configure CPA
+
+Edit `cpa/config.yaml`. The copied template already contains the Docker-specific values required by this stack:
 
 ```yaml
 host: ""
@@ -105,20 +83,41 @@ usage-statistics-enabled: true
 
 remote-management:
   allow-remote: true
-  secret-key: "your-management-key-or-hash"
+  secret-key: ""
 ```
 
-Also replace the example `api-keys` with the client keys you want to allow.
+Set `remote-management.secret-key` to the same value as `CPA_MANAGEMENT_KEY` in `.env`. Also replace the example values under `api-keys` with the client API keys that should be allowed to call CPA.
 
-Do not commit `cpa/config.yaml`, auth files, logs, Keeper databases, or `.env` files. They are intentionally ignored by `.gitignore`.
+The Docker-specific settings have distinct purposes:
 
-## Daily Commands
+- `host: ""` allows CPA to accept both published host traffic and Keeper's traffic over the Compose network.
+- `auth-dir: "/root/.cli-proxy-api"` matches the container mount for provider credentials.
+- `usage-statistics-enabled: true` enables the usage information Keeper consumes.
+- `allow-remote: true` permits authenticated management calls from Keeper's container address. It does not expose CPA beyond the host bindings in `docker-compose.yml`.
 
-Run commands from this directory:
+For the full CPA configuration surface, use `cpa/config.yaml.example` and the [upstream CPA documentation](https://github.com/router-for-me/CLIProxyAPI).
+
+### 4. Add provider credentials
+
+CPA stores provider credentials under `cpa/auths/`. Existing CPA credential files can be copied into that directory.
+
+Provider-specific OAuth and API-key acquisition flows belong to CPA and may change independently of this repository. Follow the [upstream CPA authentication instructions](https://github.com/router-for-me/CLIProxyAPI) rather than relying on commands copied into this README.
+
+### 5. Start the stack
 
 ```sh
-cd /Users/alexdu/repos/cpa-stack
+docker compose up -d
+docker compose ps
 ```
+
+Setup is complete when both services are running:
+
+- `cli-proxy-api`
+- `cpa-usage-keeper`
+
+Open Keeper at <http://127.0.0.1:8318> and sign in with `CPA_KEEPER_LOGIN_PASSWORD`.
+
+## Common operations
 
 Show status:
 
@@ -126,210 +125,175 @@ Show status:
 docker compose ps
 ```
 
-Start or apply normal config changes:
-
-```sh
-docker compose up -d
-```
-
-Follow logs:
+Follow all logs:
 
 ```sh
 docker compose logs -f
 ```
 
-Follow one service's logs:
+Follow one service:
 
 ```sh
 docker compose logs -f cli-proxy-api
 docker compose logs -f cpa-usage-keeper
 ```
 
-Stop containers without deleting persisted data:
+Start the stack or apply configuration changes:
 
 ```sh
-docker compose down
+docker compose up -d
 ```
 
-Restart containers:
+Restart existing containers:
 
 ```sh
 docker compose restart
 ```
 
-Pull newer images and restart:
+Stop and remove containers without deleting bind-mounted data:
 
 ```sh
-docker compose pull
-docker compose up -d
+docker compose down
 ```
 
-## Recreating Containers
+The services use `restart: unless-stopped`, so Docker restarts them after a crash or a Colima restart unless they were explicitly stopped.
 
-Containers do not automatically pick up changed shell environment variables. If you change `CPA_MANAGEMENT_KEY` or `CPA_KEEPER_LOGIN_PASSWORD`, recreate Keeper from a shell where the new vars are exported:
+## Applying secret changes
+
+Compose interpolates `.env` when it creates a container. Editing `.env` does not update an already-created container.
+
+After changing either secret, recreate Keeper:
 
 ```sh
 docker compose up -d --force-recreate cpa-usage-keeper
 ```
 
-For changes that affect both services, recreate both:
+If `CPA_MANAGEMENT_KEY` changed, update `remote-management.secret-key` in `cpa/config.yaml` to the same value and recreate both services:
 
 ```sh
 docker compose up -d --force-recreate
 ```
 
-This recreates containers, not persistent data. Data remains in:
+Recreating containers does not delete bind-mounted state.
 
-```text
-cpa/
-keeper/
-```
+## Optional verification
 
-## Auto-Start Behavior
-
-Colima is managed by Homebrew services:
+Check CPA process readiness:
 
 ```sh
-brew services list
+curl -fsS http://127.0.0.1:8317/healthz
 ```
 
-Expected state:
-
-```text
-colima      started
-cliproxyapi none
-```
-
-The Compose services use:
-
-```yaml
-restart: unless-stopped
-```
-
-This means Docker restarts the containers after crashes or Docker/Colima restarts, unless you explicitly stopped them.
-
-Docker's automatic restart does not source `.zshrc`; it uses the environment values already stored in the existing container configuration from the last `docker compose up`.
-
-## CPA Config Notes
-
-The Docker copy of CPA config is:
-
-```text
-/Users/alexdu/repos/cpa-stack/cpa/config.yaml
-```
-
-Docker-specific settings in that file:
-
-```yaml
-host: ""
-auth-dir: "/root/.cli-proxy-api"
-usage-statistics-enabled: true
-
-remote-management:
-  allow-remote: true
-```
-
-Why these matter:
-
-```text
-host: ""                         Allows Docker port publishing and container-to-container access.
-auth-dir: "/root/.cli-proxy-api"  Matches the mounted auth directory inside the container.
-usage-statistics-enabled: true     Required by CPA Usage Keeper.
-allow-remote: true                 Allows Keeper, in another container, to call CPA management APIs.
-```
-
-Do not edit the old Homebrew config expecting Docker CPA to use it. Docker CPA uses the copied config in this stack directory.
-
-## Ports
-
-Current host ports:
-
-```text
-8317 -> CPA container port 8317
-8318 -> Keeper container port 8080
-```
-
-Port `1455` is not published on the host. Keeper currently reads CPA usage from:
-
-```yaml
-REDIS_QUEUE_ADDR: cli-proxy-api:8317
-```
-
-## Health Checks
-
-Check CPA:
+Check Keeper process readiness:
 
 ```sh
-curl -I http://127.0.0.1:8317
+curl -fsS http://127.0.0.1:8318/healthz
 ```
 
-Check Keeper:
+Check CPA's authenticated model listing with one of the client API keys from `cpa/config.yaml`:
 
 ```sh
-curl -I http://127.0.0.1:8318
+curl -fsS \
+  -H 'Authorization: Bearer YOUR_CLIENT_API_KEY' \
+  http://127.0.0.1:8317/v1/models
 ```
 
-Check Keeper health endpoint:
+These checks prove that the HTTP processes are responding. They do not by themselves prove that every provider credential works or that Keeper has ingested a usage event.
+
+## Persistent local state
+
+| Path | Contents |
+| --- | --- |
+| `cpa/config.yaml` | Local CPA configuration, client API keys, and management secret |
+| `cpa/auths/` | Provider credentials and OAuth records |
+| `cpa/logs/` | CPA file logs when enabled |
+| `cpa/plugins/` | Optional persisted CPA plugins |
+| `keeper/` | Keeper's SQLite database, logs, and internally managed data |
+
+The `.env` file contains Compose secrets. All of these paths are local and ignored by Git; `.env.example` and `cpa/config.yaml.example` are the trackable templates.
+
+Keeper may create internal backup files under its data directory, but this repository does not define or verify a disaster-recovery procedure.
+
+## Updating
+
+Both services intentionally track mutable `latest` image tags. Pulling can therefore introduce upstream application or database changes.
+
+Review upstream release information when practical, then update with:
 
 ```sh
-curl -I http://127.0.0.1:8318/healthz
+docker compose pull
+docker compose up -d
+docker compose ps
 ```
 
-## Homebrew CPA Cleanup
-
-The old Homebrew CPA should not run at the same time as Docker CPA.
-
-Stop it:
+If the updated stack fails, inspect the service logs before making further changes:
 
 ```sh
-brew services stop cliproxyapi
+docker compose logs --tail=200 cli-proxy-api
+docker compose logs --tail=200 cpa-usage-keeper
 ```
-
-Uninstall it if you no longer want the Homebrew binary:
-
-```sh
-brew uninstall cliproxyapi
-```
-
-If a stale service plist remains:
-
-```sh
-rm ~/Library/LaunchAgents/homebrew.mxcl.cliproxyapi.plist
-```
-
-Consider keeping the old config/auth files as a backup until the Docker stack has been stable for a while.
 
 ## Troubleshooting
 
-If `docker compose` cannot see secret variables, open a new terminal or run:
+### Colima or Docker is unavailable
 
 ```sh
-source ~/.zshrc
+colima status
+brew services list
+docker version
 ```
 
-If a port is already used:
+Start Colima if necessary:
+
+```sh
+colima start
+```
+
+### Compose reports a missing variable
+
+Confirm `.env` exists in the repository root and defines both required names:
+
+```sh
+test -f .env && echo '.env exists'
+grep -q '^CPA_MANAGEMENT_KEY=' .env && echo 'CPA_MANAGEMENT_KEY present'
+grep -q '^CPA_KEEPER_LOGIN_PASSWORD=' .env && echo 'CPA_KEEPER_LOGIN_PASSWORD present'
+```
+
+These checks print variable names only, not their values.
+
+### A local port is already occupied
 
 ```sh
 lsof -nP -iTCP:8317 -sTCP:LISTEN
 lsof -nP -iTCP:8318 -sTCP:LISTEN
+lsof -nP -iTCP:1455 -sTCP:LISTEN
 ```
 
-If Keeper cannot connect to CPA, check logs:
+The port mappings are intentionally explicit in `docker-compose.yml`. Change them only with an understanding of dependent URLs; the Codex OAuth callback expects host port `1455`.
+
+### A container exits during startup
 
 ```sh
-docker compose logs cpa-usage-keeper
-docker compose logs cli-proxy-api
+docker compose ps -a
+docker compose logs --tail=200 cli-proxy-api
+docker compose logs --tail=200 cpa-usage-keeper
 ```
 
-If Colima is not running:
+Common causes include a missing `cpa/config.yaml`, invalid YAML, unresolved Compose secrets, or a port conflict.
+
+### Keeper cannot reach CPA
+
+Confirm both services share the Compose network and inspect their logs:
 
 ```sh
-brew services start colima
-colima status
+docker compose ps
+docker compose logs --tail=200 cpa-usage-keeper
+docker compose logs --tail=200 cli-proxy-api
 ```
 
-If containers are stopped and should be running:
+In `cpa/config.yaml`, `host` must allow container-network traffic and `remote-management.allow-remote` must be `true`. The Keeper management key must match CPA's management secret.
 
-```sh
-docker compose up -d
-```
+For provider authentication, request routing, Keeper features, or plugin-specific failures, consult the upstream projects:
+
+- [CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI)
+- [CPA Usage Keeper](https://github.com/Willxup/cpa-usage-keeper)
