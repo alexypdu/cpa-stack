@@ -4,8 +4,8 @@ services:
     container_name: cli-proxy-api
     restart: unless-stopped
     ports:
-      - '8317:8317'
-      - '1455:1455'
+      - '127.0.0.1:8317:8317'
+      - '127.0.0.1:1455:1455'
     volumes:
       - ./cpa/auths:/CLIProxyAPI/.cli-proxy-api
       - ./cpa/config.yaml:/CLIProxyAPI/config.yaml
@@ -21,7 +21,7 @@ services:
     depends_on:
       - cli-proxy-api
     ports:
-      - '8318:8080'
+      - '127.0.0.1:8318:8080'
     environment:
       TZ: America/New_York
       CPA_BASE_URL: http://cli-proxy-api:8317

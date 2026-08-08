@@ -21,15 +21,10 @@ cpa/**/*.log
 cpa/**/*.cds
 
 # Keep templates trackable
-!cpa/config.yaml.default
+!cpa/config.yaml.example
 
-# Usage keeper runtime data
-keeper/app.db
-keeper/app.db-*
-keeper/*.db
-keeper/*.db-*
-keeper/backups/
-keeper/logs/
+# Usage Keeper runtime data
+keeper/
 
 # General logs / caches
 logs/
