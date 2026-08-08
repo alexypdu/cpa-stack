@@ -78,7 +78,7 @@ Edit `cpa/config.yaml`. The copied template already contains the Docker-specific
 
 ```yaml
 host: ""
-auth-dir: "/root/.cli-proxy-api"
+auth-dir: "/CLIProxyAPI/.cli-proxy-api"
 usage-statistics-enabled: true
 
 remote-management:
@@ -91,7 +91,7 @@ Set `remote-management.secret-key` to the same value as `CPA_MANAGEMENT_KEY` in 
 The Docker-specific settings have distinct purposes:
 
 - `host: ""` allows CPA to accept both published host traffic and Keeper's traffic over the Compose network.
-- `auth-dir: "/root/.cli-proxy-api"` matches the container mount for provider credentials.
+- `auth-dir: "/CLIProxyAPI/.cli-proxy-api"` matches the container mount for provider credentials.
 - `usage-statistics-enabled: true` enables the usage information Keeper consumes.
 - `allow-remote: true` permits authenticated management calls from Keeper's container address. It does not expose CPA beyond the host bindings in `docker-compose.yml`.
 
