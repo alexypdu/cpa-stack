@@ -298,7 +298,7 @@ sync() {
   if [ "$baseline_changed" -eq 1 ]; then
     printf 'Tracked artifact changed: cpa/config.yaml.example.\n'
   fi
-  if [ "$cpa_changed" -eq 1 ] || [ "$baseline_changed" -eq 1 ]; then
+  if [ "$baseline_changed" -eq 1 ]; then
     printf 'Next: review the diff, then run ./cpa-stack generate before restarting the stack.\n'
   fi
 
