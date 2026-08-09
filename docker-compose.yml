@@ -1,6 +1,6 @@
 services:
   cli-proxy-api:
-    image: eceasy/cli-proxy-api:latest
+    image: eceasy/cli-proxy-api:v7.2.125
     container_name: cli-proxy-api
     restart: unless-stopped
     ports:
@@ -15,7 +15,7 @@ services:
       - cpa-network
 
   cpa-usage-keeper:
-    image: ghcr.io/willxup/cpa-usage-keeper:latest
+    image: ghcr.io/willxup/cpa-usage-keeper:v1.14.3
     container_name: cpa-usage-keeper
     restart: unless-stopped
     depends_on:

@@ -1,0 +1,98 @@
+#!/bin/sh
+
+set -eu
+
+umask 077
+
+script_dir=$(CDPATH= cd -P "$(dirname "$0")" && pwd)
+baseline="$script_dir/cpa/config.yaml.example"
+override="$script_dir/cpa/config.yaml.override"
+effective="$script_dir/cpa/config.yaml"
+backup="$script_dir/cpa/config.yaml.pre-generator"
+env_file="$script_dir/.env"
+
+compose_input=
+compose_output=
+resolved_override=
+staged_effective=
+staged_backup=
+
+cleanup() {
+  status=$?
+  trap - EXIT HUP INT TERM
+  for path in "$compose_input" "$compose_output" "$resolved_override" "$staged_effective" "$staged_backup"; do
+    if [ -n "$path" ] && [ -e "$path" ]; then
+      rm -f "$path"
+    fi
+  done
+  exit "$status"
+}
+
+trap cleanup EXIT
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
+fail() {
+  printf 'cpa-stack: %s\n' "$*" >&2
+  exit 1
+}
+
+require_file() {
+  [ -f "$1" ] || fail "required file not found: $1"
+}
+
+require_generate_tools() {
+  command -v docker >/dev/null 2>&1 || fail "Docker with Compose is required"
+  docker compose version >/dev/null 2>&1 || fail "Docker Compose is required"
+
+  command -v yq >/dev/null 2>&1 || fail "Mike Farah yq v4 is required"
+  yq_version=$(yq --version 2>&1) || fail "could not determine yq version; Mike Farah yq v4 is required"
+  case "$yq_version" in
+    *mikefarah/yq*"version v4."*) ;;
+    *) fail "incompatible yq implementation or version; Mike Farah yq v4 is required" ;;
+  esac
+}
+
+generate() {
+  require_generate_tools
+  require_file "$baseline"
+  require_file "$override"
+  require_file "$env_file"
+
+  compose_input=$(mktemp "${TMPDIR:-/tmp}/cpa-stack.compose.XXXXXX") || fail "could not create temporary Compose input"
+  compose_output=$(mktemp "${TMPDIR:-/tmp}/cpa-stack.rendered.XXXXXX") || fail "could not create temporary Compose output"
+  resolved_override=$(mktemp "${TMPDIR:-/tmp}/cpa-stack.override.XXXXXX") || fail "could not create temporary override"
+  staged_effective=$(mktemp "$script_dir/cpa/.config.yaml.XXXXXX") || fail "could not stage effective configuration"
+
+  yq eval '{"x-cpa-stack-override": .}' "$override" >"$compose_input" || fail "could not prepare the stack override"
+  docker compose --env-file "$env_file" -f "$compose_input" config >"$compose_output" || fail "could not interpolate the stack override"
+  yq eval '."x-cpa-stack-override"' "$compose_output" >"$resolved_override" || fail "could not extract the interpolated stack override"
+  yq eval-all 'select(fileIndex == 0) * select(fileIndex == 1)' "$baseline" "$resolved_override" >"$staged_effective" || fail "could not merge the CPA configuration layers"
+  chmod 600 "$staged_effective" || fail "could not secure the effective configuration"
+
+  if [ -f "$effective" ] && [ ! -e "$backup" ]; then
+    staged_backup=$(mktemp "$script_dir/cpa/.config.yaml.pre-generator.XXXXXX") || fail "could not stage the pre-generator backup"
+    cp "$effective" "$staged_backup" || fail "could not copy the pre-generator configuration"
+    chmod 600 "$staged_backup" || fail "could not secure the pre-generator backup"
+    mv "$staged_backup" "$backup" || fail "could not preserve the pre-generator configuration"
+    staged_backup=
+  fi
+
+  mv "$staged_effective" "$effective" || fail "could not replace the effective configuration"
+  staged_effective=
+
+  printf 'Generated cpa/config.yaml with mode 0600.\n'
+}
+
+usage() {
+  printf 'Usage: ./cpa-stack generate\n' >&2
+  exit 2
+}
+
+[ "$#" -eq 1 ] || usage
+
+case "$1" in
+  generate) generate ;;
+  *) usage ;;
+esac

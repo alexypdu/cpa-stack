@@ -26,76 +26,76 @@ Keeper connects to CPA over the Compose network. CPA must therefore accept manag
 
 ## Prerequisites
 
-The supported setup uses macOS, Homebrew, and Colima.
+The supported setup uses macOS, Homebrew, and Colima. Configuration generation requires [Mike Farah `yq`](https://github.com/mikefarah/yq) v4; other programs named `yq` are incompatible.
 
 Install the required tools:
 
 ```sh
-brew install colima docker docker-compose git
+brew install colima docker docker-compose git yq
 ```
 
-Start Colima and verify Docker Compose is available:
+Start Colima and verify the required commands are available:
 
 ```sh
 colima start
 docker version
 docker compose version
+yq --version
 ```
 
 Run all remaining commands from the repository root.
 
+## Configuration layers
+
+CPA configuration is assembled from three files:
+
+| Path | Role |
+| --- | --- |
+| `cpa/config.yaml.example` | Tracked, byte-identical upstream baseline for the CPA version declared in `docker-compose.yml` |
+| `cpa/config.yaml.override` | Tracked stack policy and unresolved environment references |
+| `cpa/config.yaml` | Ignored, secret-bearing, generator-owned effective config |
+
+`./cpa-stack generate` uses Docker Compose interpolation on override values, then recursively merges the override over the untouched baseline. Override scalars and sequences replace baseline values; mappings merge recursively. Do not edit `cpa/config.yaml` directly or print it to the terminal.
+
 ## Quick start
 
-### 1. Create local files and directories
+### 1. Create local inputs and directories
 
 ```sh
 cp .env.example .env
-cp cpa/config.yaml.example cpa/config.yaml
 mkdir -p cpa/auths cpa/logs cpa/plugins keeper
 ```
 
-These local files and runtime directories are ignored by Git.
+These local inputs and runtime directories are ignored by Git.
 
-### 2. Configure Compose secrets
+### 2. Configure secrets
 
-Edit `.env` and replace both placeholders:
+Edit `.env` and replace every placeholder:
 
 ```dotenv
 CPA_MANAGEMENT_KEY='replace-with-a-strong-management-key'
 CPA_KEEPER_LOGIN_PASSWORD='replace-with-a-strong-login-password'
+CPA_CLIENT_API_KEY_1='replace-with-a-strong-client-api-key'
+CPA_CLIENT_API_KEY_2='replace-with-a-different-strong-client-api-key'
+CPA_CLIENT_API_KEY_3='replace-with-another-strong-client-api-key'
 ```
-
-Docker Compose automatically loads `.env` from the repository root. No `source` command is required.
 
 - `CPA_MANAGEMENT_KEY` allows Keeper to call CPA's privileged management API.
 - `CPA_KEEPER_LOGIN_PASSWORD` protects Keeper's web interface.
+- Each `CPA_CLIENT_API_KEY_*` value authorizes a client to call CPA. The tracked override contains one required environment reference for each key.
 
-Keep the single quotes around each value so characters such as `$` remain literal during Compose interpolation. Shell environment variables take precedence over values in `.env`. Do not commit `.env` or share rendered Compose output, which can contain resolved secrets.
+Both Docker Compose and `./cpa-stack generate` read `.env` as passive key-value data; no `source` command is required. Exported process variables take precedence over `.env` values. Keep the single quotes so characters such as `$` remain literal while `.env` is parsed. Do not commit `.env` or share rendered Compose output, which can contain resolved secrets.
 
-### 3. Configure CPA
+### 3. Generate the effective CPA config
 
-Edit `cpa/config.yaml`. The copied template already contains the Docker-specific values required by this stack:
-
-```yaml
-host: ""
-auth-dir: "/CLIProxyAPI/.cli-proxy-api"
-usage-statistics-enabled: true
-
-remote-management:
-  allow-remote: true
-  secret-key: ""
+```sh
+./cpa-stack generate
+stat -f '%Lp %N' cpa/config.yaml
 ```
 
-Set `remote-management.secret-key` to the same value as `CPA_MANAGEMENT_KEY` in `.env`. Also replace the example values under `api-keys` with the client API keys that should be allowed to call CPA.
+The mode check should report `600 cpa/config.yaml`. Generation does not contact the network, pull images, or touch containers. It accepts dirty baseline and override inputs so local configuration changes can be tested before they are committed.
 
-The Docker-specific settings have distinct purposes:
-
-- `host: ""` allows CPA to accept both published host traffic and Keeper's traffic over the Compose network.
-- `auth-dir: "/CLIProxyAPI/.cli-proxy-api"` matches the container mount for provider credentials.
-- `usage-statistics-enabled: true` enables the usage information Keeper consumes.
-- `allow-remote: true` permits authenticated management calls from Keeper's container address. It does not expose CPA beyond the host bindings in `docker-compose.yml`.
-
-For the full CPA configuration surface, use `cpa/config.yaml.example` and the [upstream CPA documentation](https://github.com/router-for-me/CLIProxyAPI).
+If a manual `cpa/config.yaml` predates the generator, the first successful generation preserves it once as `cpa/config.yaml.pre-generator` with mode `0600`. Later runs never replace that backup. Review it locally for settings that should be carried into the tracked override, then remove it manually when it is no longer needed.
 
 ### 4. Add provider credentials
 
@@ -125,26 +125,25 @@ Show status:
 docker compose ps
 ```
 
-Follow all logs:
+Follow logs:
 
 ```sh
 docker compose logs -f
-```
-
-Follow one service:
-
-```sh
 docker compose logs -f cli-proxy-api
 docker compose logs -f cpa-usage-keeper
 ```
 
-Start the stack or apply configuration changes:
+Apply local configuration or secret changes:
 
 ```sh
-docker compose up -d
+./cpa-stack generate
+docker compose up -d --force-recreate
+docker compose ps
 ```
 
-Restart existing containers:
+Generation must succeed before containers are recreated. If it fails, the previous effective configuration remains in place.
+
+Restart existing containers without applying changed Compose environment values:
 
 ```sh
 docker compose restart
@@ -157,24 +156,6 @@ docker compose down
 ```
 
 The services use `restart: unless-stopped`, so Docker restarts them after a crash or a Colima restart unless they were explicitly stopped.
-
-## Applying secret changes
-
-Compose interpolates `.env` when it creates a container. Editing `.env` does not update an already-created container.
-
-After changing either secret, recreate Keeper:
-
-```sh
-docker compose up -d --force-recreate cpa-usage-keeper
-```
-
-If `CPA_MANAGEMENT_KEY` changed, update `remote-management.secret-key` in `cpa/config.yaml` to the same value and recreate both services:
-
-```sh
-docker compose up -d --force-recreate
-```
-
-Recreating containers does not delete bind-mounted state.
 
 ## Optional verification
 
@@ -190,7 +171,7 @@ Check Keeper process readiness:
 curl -fsS http://127.0.0.1:8318/healthz
 ```
 
-Check CPA's authenticated model listing with one of the client API keys from `cpa/config.yaml`:
+Check CPA's authenticated model listing with one of the client API keys from `.env`:
 
 ```sh
 curl -fsS \
@@ -198,35 +179,37 @@ curl -fsS \
   http://127.0.0.1:8317/v1/models
 ```
 
-These checks prove that the HTTP processes are responding. They do not by themselves prove that every provider credential works or that Keeper has ingested a usage event.
+These checks prove that the HTTP processes are responding. They do not by themselves prove that every provider credential works or that Keeper has ingested a usage event. Generation validates interpolation and YAML assembly, not CPA's complete runtime semantics.
 
 ## Persistent local state
 
 | Path | Contents |
 | --- | --- |
-| `cpa/config.yaml` | Local CPA configuration, client API keys, and management secret |
+| `.env` | Compose secrets and CPA client API keys |
+| `cpa/config.yaml` | Generated effective CPA configuration |
+| `cpa/config.yaml.pre-generator` | Optional one-time backup of the former manual configuration |
 | `cpa/auths/` | Provider credentials and OAuth records |
 | `cpa/logs/` | CPA file logs when enabled |
 | `cpa/plugins/` | Optional persisted CPA plugins |
 | `keeper/` | Keeper's SQLite database, logs, and internally managed data |
 
-The `.env` file contains Compose secrets. All of these paths are local and ignored by Git; `.env.example` and `cpa/config.yaml.example` are the trackable templates.
+These paths are local and ignored by Git. The tracked inputs are `.env.example`, `cpa/config.yaml.example`, and `cpa/config.yaml.override`.
 
 Keeper may create internal backup files under its data directory, but this repository does not define or verify a disaster-recovery procedure.
 
-## Updating
+## Updating pinned releases
 
-Both services intentionally track mutable `latest` image tags. Pulling can therefore introduce upstream application or database changes.
+The Compose services use explicit stable release tags. The CPA image tag and `cpa/config.yaml.example` form one versioned unit: the baseline must remain byte-identical to `config.example.yaml` from the exact CPA tag declared in Compose.
 
-Review upstream release information when practical, then update with:
+When changing a declared release, review the upstream release notes and the resulting Git diff. After updating the pinned declarations and baseline, apply them with:
 
 ```sh
-docker compose pull
-docker compose up -d
+./cpa-stack generate
+docker compose up -d --force-recreate
 docker compose ps
 ```
 
-If the updated stack fails, inspect the service logs before making further changes:
+Recreating containers may fetch a missing declared image. It does not delete bind-mounted state. If the updated stack fails, inspect the service logs before making further changes:
 
 ```sh
 docker compose logs --tail=200 cli-proxy-api
@@ -234,6 +217,39 @@ docker compose logs --tail=200 cpa-usage-keeper
 ```
 
 ## Troubleshooting
+
+### Configuration generation rejects `yq`
+
+Confirm that the command is Mike Farah `yq` v4:
+
+```sh
+yq --version
+```
+
+Install or upgrade it with Homebrew if the output identifies another implementation or major version:
+
+```sh
+brew install yq
+```
+
+### Generation reports a missing variable
+
+Confirm `.env` exists and defines every required name without printing their values:
+
+```sh
+test -f .env && echo '.env exists'
+for name in \
+  CPA_MANAGEMENT_KEY \
+  CPA_KEEPER_LOGIN_PASSWORD \
+  CPA_CLIENT_API_KEY_1 \
+  CPA_CLIENT_API_KEY_2 \
+  CPA_CLIENT_API_KEY_3
+do
+  grep -q "^${name}=" .env && echo "$name present"
+done
+```
+
+A failed generation leaves the previous `cpa/config.yaml` untouched.
 
 ### Colima or Docker is unavailable
 
@@ -248,18 +264,6 @@ Start Colima if necessary:
 ```sh
 colima start
 ```
-
-### Compose reports a missing variable
-
-Confirm `.env` exists in the repository root and defines both required names:
-
-```sh
-test -f .env && echo '.env exists'
-grep -q '^CPA_MANAGEMENT_KEY=' .env && echo 'CPA_MANAGEMENT_KEY present'
-grep -q '^CPA_KEEPER_LOGIN_PASSWORD=' .env && echo 'CPA_KEEPER_LOGIN_PASSWORD present'
-```
-
-These checks print variable names only, not their values.
 
 ### A local port is already occupied
 
@@ -279,7 +283,7 @@ docker compose logs --tail=200 cli-proxy-api
 docker compose logs --tail=200 cpa-usage-keeper
 ```
 
-Common causes include a missing `cpa/config.yaml`, invalid YAML, unresolved Compose secrets, or a port conflict.
+Common causes include a missing generated `cpa/config.yaml`, invalid CPA configuration, unresolved Compose secrets, or a port conflict.
 
 ### Keeper cannot reach CPA
 
@@ -291,7 +295,7 @@ docker compose logs --tail=200 cpa-usage-keeper
 docker compose logs --tail=200 cli-proxy-api
 ```
 
-In `cpa/config.yaml`, `host` must allow container-network traffic and `remote-management.allow-remote` must be `true`. The Keeper management key must match CPA's management secret.
+The generated CPA config must allow container-network traffic and remote management. The Keeper management key must match CPA's management secret; both are generated from `CPA_MANAGEMENT_KEY`.
 
 For provider authentication, request routing, Keeper features, or plugin-specific failures, consult the upstream projects:
 
