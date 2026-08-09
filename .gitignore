@@ -14,6 +14,8 @@
 
 # CLIProxyAPI local runtime config and auth state
 cpa/config.yaml
+cpa/config.yaml.backup
+cpa/config.yaml.override
 cpa/auths/
 cpa/logs/
 cpa/plugins/
@@ -22,6 +24,7 @@ cpa/**/*.cds
 
 # Keep templates trackable
 !cpa/config.yaml.example
+!cpa/config.yaml.override.example
 
 # Usage Keeper runtime data
 keeper/

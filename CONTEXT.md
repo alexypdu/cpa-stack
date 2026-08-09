@@ -39,3 +39,15 @@ Usage information exposed by CPA for ingestion by Keeper. In this stack, the usa
 ## Plugin
 
 An optional extension loaded by CPA to add or alter provider, routing, management, or related behavior.
+
+## Upstream baseline
+
+The configuration published for a specific CPA release before any CPA Stack customization is applied.
+
+## Stack override
+
+CPA Stack configuration layered over the upstream baseline to express stack policy and references to operator-supplied values.
+
+## Effective config
+
+The complete CPA configuration produced by applying the stack override and resolving operator-supplied values against the upstream baseline. CPA consumes the effective config at runtime.
