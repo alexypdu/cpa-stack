@@ -82,9 +82,13 @@ require_yq() {
   esac
 }
 
-require_generate_tools() {
+require_compose() {
   command -v docker >/dev/null 2>&1 || fail "Docker with Compose is required"
   docker compose version >/dev/null 2>&1 || fail "Docker Compose is required"
+}
+
+require_generate_tools() {
+  require_compose
   require_yq
 }
 
@@ -337,8 +341,33 @@ generate() {
   printf 'Generated cpa/config.yaml with mode 0600.\n'
 }
 
+restart() {
+  require_file "$compose_file"
+  [ -f "$effective" ] || fail "effective config not found; run ./cpa-stack generate first"
+  require_file "$env_file"
+  require_compose
+
+  docker compose \
+    --project-directory "$script_dir" \
+    --env-file "$env_file" \
+    -f "$compose_file" \
+    up -d --force-recreate \
+    cli-proxy-api cpa-usage-keeper || fail "could not recreate the CPA Stack"
+
+  exited_services=$(docker compose \
+    --project-directory "$script_dir" \
+    --env-file "$env_file" \
+    -f "$compose_file" \
+    ps --all --status exited --services \
+    cli-proxy-api cpa-usage-keeper) || fail "could not inspect recreated service status"
+
+  [ -z "$exited_services" ] || fail "service exited during startup: $exited_services"
+
+  printf 'Recreated CPA and Keeper; no immediate service exit was observed.\n'
+}
+
 usage() {
-  printf 'Usage: ./cpa-stack {sync|generate}\n' >&2
+  printf 'Usage: ./cpa-stack {sync|generate|restart}\n' >&2
   exit 2
 }
 
@@ -347,5 +376,6 @@ usage() {
 case "$1" in
   sync) sync ;;
   generate) generate ;;
+  restart) restart ;;
   *) usage ;;
 esac

@@ -141,11 +141,12 @@ Apply local configuration or secret changes:
 
 ```sh
 ./cpa-stack generate
-docker compose up -d --force-recreate
-docker compose ps
+./cpa-stack restart
 ```
 
-Generation must succeed before containers are recreated. If it fails, the previous effective configuration remains in place.
+Generation must succeed before containers are recreated. If it fails, the previous effective configuration remains in place. `./cpa-stack restart` requires an existing effective config, then force-recreates CPA and Keeper using the image versions and environment currently declared in the checkout. It does not synchronize releases or regenerate configuration.
+
+The command fails if either service is already exited when Compose finishes recreating the stack. This is only an immediate state check, not a healthcheck or complete validation of CPA semantics; use the optional verification steps below after recreation.
 
 Restart existing containers without applying changed Compose environment values:
 
@@ -219,11 +220,10 @@ Review the upstream release notes and the focused Git diff before applying a syn
 
 ```sh
 ./cpa-stack generate
-docker compose up -d --force-recreate
-docker compose ps
+./cpa-stack restart
 ```
 
-Recreating containers may fetch a missing declared image. It does not delete bind-mounted state. To reject a synchronized release before applying it, restore `docker-compose.yml` and `cpa/config.yaml.example`. If the updated stack fails, inspect the service logs before making further changes:
+Restart may fetch a missing declared image through normal Compose behavior. It does not discover releases, perform a separate unconditional pull, or delete bind-mounted state. To reject a synchronized release before applying it, restore `docker-compose.yml` and `cpa/config.yaml.example`. If the updated stack fails, inspect the service logs before making further changes:
 
 ```sh
 docker compose logs --tail=200 cli-proxy-api
