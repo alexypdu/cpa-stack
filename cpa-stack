@@ -14,13 +14,15 @@ env_file="$script_dir/.env"
 compose_input=
 compose_output=
 resolved_override=
+marked_baseline=
+merged_effective=
 staged_effective=
 staged_backup=
 
 cleanup() {
   status=$?
   trap - EXIT HUP INT TERM
-  for path in "$compose_input" "$compose_output" "$resolved_override" "$staged_effective" "$staged_backup"; do
+  for path in "$compose_input" "$compose_output" "$resolved_override" "$marked_baseline" "$merged_effective" "$staged_effective" "$staged_backup"; do
     if [ -n "$path" ] && [ -e "$path" ]; then
       rm -f "$path"
     fi
@@ -63,12 +65,81 @@ generate() {
   compose_input=$(mktemp "${TMPDIR:-/tmp}/cpa-stack.compose.XXXXXX") || fail "could not create temporary Compose input"
   compose_output=$(mktemp "${TMPDIR:-/tmp}/cpa-stack.rendered.XXXXXX") || fail "could not create temporary Compose output"
   resolved_override=$(mktemp "${TMPDIR:-/tmp}/cpa-stack.override.XXXXXX") || fail "could not create temporary override"
+  marked_baseline=$(mktemp "${TMPDIR:-/tmp}/cpa-stack.baseline.XXXXXX") || fail "could not create temporary baseline"
+  merged_effective=$(mktemp "${TMPDIR:-/tmp}/cpa-stack.effective.XXXXXX") || fail "could not create temporary effective configuration"
   staged_effective=$(mktemp "$script_dir/cpa/.config.yaml.XXXXXX") || fail "could not stage effective configuration"
 
   yq eval '{"x-cpa-stack-override": .}' "$override" >"$compose_input" || fail "could not prepare the stack override"
   docker compose --env-file "$env_file" -f "$compose_input" config >"$compose_output" || fail "could not interpolate the stack override"
   yq eval '."x-cpa-stack-override"' "$compose_output" >"$resolved_override" || fail "could not extract the interpolated stack override"
-  yq eval-all 'select(fileIndex == 0) * select(fileIndex == 1)' "$baseline" "$resolved_override" >"$staged_effective" || fail "could not merge the CPA configuration layers"
+
+  # yq preserves comments but discards blank lines, so represent baseline blanks as temporary markers.
+  blank_line_marker="cpa-stack-preserved-blank-line-$$"
+  while grep -Fq "$blank_line_marker" "$baseline" || grep -Fq "$blank_line_marker" "$resolved_override"; do
+    blank_line_marker="${blank_line_marker}x"
+  done
+  awk -v marker="# $blank_line_marker" '
+    function indentation(line) {
+      match(line, /^[ ]*/)
+      return RLENGTH
+    }
+    function starts_block_scalar(line, candidate) {
+      candidate = line
+      sub(/[[:space:]]+#.*$/, "", candidate)
+      return candidate ~ /:[[:space:]]*((![^[:space:]]*|&[^[:space:]]+)[[:space:]]+)*[|>][0-9+-]*[[:space:]]*$/ || \
+        candidate ~ /^[[:space:]]*-[[:space:]]*((![^[:space:]]*|&[^[:space:]]+)[[:space:]]+)*[|>][0-9+-]*[[:space:]]*$/ || \
+        candidate ~ /^[[:space:]]*((![^[:space:]]*|&[^[:space:]]+)[[:space:]]+)*[|>][0-9+-]*[[:space:]]*$/
+    }
+    function keeps_block_trailing_lines(line, candidate) {
+      candidate = line
+      sub(/[[:space:]]+#.*$/, "", candidate)
+      return candidate ~ /[|>][0-9-]*\+[0-9-]*[[:space:]]*$/
+    }
+    function next_content_indent(position, j) {
+      for (j = position + 1; j <= line_count; j++) {
+        if (lines[j] !~ /^[[:space:]]*$/) {
+          return indentation(lines[j])
+        }
+      }
+      return -1
+    }
+    { lines[NR] = $0 }
+    END {
+      line_count = NR
+      for (i = 1; i <= line_count; i++) {
+        line = lines[i]
+        if (in_block_scalar) {
+          if (line ~ /^[[:space:]]*$/) {
+            following_indent = next_content_indent(i)
+            if (block_keeps_trailing_lines || following_indent < 0 || following_indent > block_indent) {
+              print line
+              continue
+            }
+            in_block_scalar = 0
+          } else if (indentation(line) > block_indent) {
+            print line
+            continue
+          } else {
+            in_block_scalar = 0
+          }
+        }
+
+        if (line ~ /^[[:space:]]*$/) {
+          print marker
+          continue
+        }
+
+        print line
+        if (starts_block_scalar(line)) {
+          in_block_scalar = 1
+          block_indent = indentation(line)
+          block_keeps_trailing_lines = keeps_block_trailing_lines(line)
+        }
+      }
+    }
+  ' "$baseline" >"$marked_baseline" || fail "could not preserve baseline line breaks"
+  yq eval-all 'select(fileIndex == 0) * select(fileIndex == 1)' "$marked_baseline" "$resolved_override" >"$merged_effective" || fail "could not merge the CPA configuration layers"
+  awk -v marker="$blank_line_marker" '{ line = $0; sub(/^[[:space:]]*/, "", line); if (line == "# " marker) { print ""; next } print }' "$merged_effective" >"$staged_effective" || fail "could not restore baseline line breaks"
   chmod 600 "$staged_effective" || fail "could not secure the effective configuration"
 
   if [ -f "$effective" ] && [ ! -e "$backup" ]; then
