@@ -67,12 +67,11 @@ Release synchronization is optional during initial setup. Run `generate` after c
 
    ```dotenv
    CPA_MANAGEMENT_KEY='replace-with-a-strong-management-key'
-   CPA_MANAGEMENT_KEY_HASHED='replace-with-the-hashed-management-key'
    CPA_KEEPER_LOGIN_PASSWORD='replace-with-a-strong-login-password'
    CPA_CLIENT_API_KEY='replace-with-a-strong-client-api-key'
    ```
 
-   `CPA_MANAGEMENT_KEY_HASHED` is CPA's stored representation of the same management credential supplied to Keeper as `CPA_MANAGEMENT_KEY`. Keep `.env` private and follow the [upstream CPA documentation](https://github.com/router-for-me/CLIProxyAPI) for management-key and provider-authentication details.
+   Keep `.env` private and follow the [upstream CPA documentation](https://github.com/router-for-me/CLIProxyAPI) for management-key and provider-authentication details.
 
 3. Add provider credentials or OAuth records under `cpa/auths/`, then synchronize the release pins, generate the effective configuration, and start the stack:
 

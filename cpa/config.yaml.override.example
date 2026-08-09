@@ -1,6 +1,6 @@
 remote-management:
   allow-remote: true
-  secret-key: ${CPA_MANAGEMENT_KEY_HASHED:?CPA_MANAGEMENT_KEY_HASHED must be set}
+  secret-key: ${CPA_MANAGEMENT_KEY:?CPA_MANAGEMENT_KEY must be set}
 
 auth-dir: "/CLIProxyAPI/.cli-proxy-api"
 
