@@ -47,15 +47,16 @@ Run all remaining commands from the repository root.
 
 ## Configuration layers
 
-CPA configuration is assembled from three files:
+CPA configuration is assembled from local inputs and tracked templates:
 
 | Path | Role |
 | --- | --- |
 | `cpa/config.yaml.example` | Tracked, byte-identical upstream baseline for the CPA version declared in `docker-compose.yml` |
-| `cpa/config.yaml.override` | Tracked stack policy and unresolved environment references |
+| `cpa/config.yaml.override.example` | Tracked example of stack policy and unresolved environment references |
+| `cpa/config.yaml.override` | Ignored, operator-owned local override copied from the example and customized as needed |
 | `cpa/config.yaml` | Ignored, secret-bearing, generator-owned effective config |
 
-`./cpa-stack generate` uses Docker Compose interpolation on override values, then recursively merges the override over the untouched baseline. Override scalars and sequences replace baseline values; mappings merge recursively. Do not edit `cpa/config.yaml` directly or print it to the terminal.
+`./cpa-stack generate` uses Docker Compose interpolation on the local override values, then recursively merges the override over the untouched baseline. Override scalars and sequences replace baseline values; mappings merge recursively. Do not edit `cpa/config.yaml` directly or print it to the terminal.
 
 ## Quick start
 
@@ -63,10 +64,11 @@ CPA configuration is assembled from three files:
 
 ```sh
 cp .env.example .env
+cp cpa/config.yaml.override.example cpa/config.yaml.override
 mkdir -p cpa/auths cpa/logs cpa/plugins keeper
 ```
 
-These local inputs and runtime directories are ignored by Git.
+The copied files and runtime directories are ignored by Git. On an existing installation, do not overwrite `.env` or `cpa/config.yaml.override`; keep the local values and policy already configured there.
 
 ### 2. Configure secrets
 
@@ -82,7 +84,7 @@ CPA_CLIENT_API_KEY_3='replace-with-another-strong-client-api-key'
 
 - `CPA_MANAGEMENT_KEY` allows Keeper to call CPA's privileged management API.
 - `CPA_KEEPER_LOGIN_PASSWORD` protects Keeper's web interface.
-- Each `CPA_CLIENT_API_KEY_*` value authorizes a client to call CPA. The tracked override contains one required environment reference for each key.
+- Each `CPA_CLIENT_API_KEY_*` value authorizes a client to call CPA. The override example contains one required environment reference for each key.
 
 Both Docker Compose and `./cpa-stack generate` read `.env` as passive key-value data; no `source` command is required. Exported process variables take precedence over `.env` values. Keep the single quotes so characters such as `$` remain literal while `.env` is parsed. Do not commit `.env` or share rendered Compose output, which can contain resolved secrets.
 
@@ -93,9 +95,9 @@ Both Docker Compose and `./cpa-stack generate` read `.env` as passive key-value 
 stat -f '%Lp %N' cpa/config.yaml
 ```
 
-The mode check should report `600 cpa/config.yaml`. Generation does not contact the network, pull images, or touch containers. It accepts dirty baseline and override inputs so local configuration changes can be tested before they are committed.
+The mode check should report `600 cpa/config.yaml`. Generation does not contact the network, pull images, or touch containers. It accepts a dirty baseline and the ignored local override so configuration changes can be tested before the baseline is committed.
 
-If a manual `cpa/config.yaml` predates the generator, the first successful generation preserves it once as `cpa/config.yaml.pre-generator` with mode `0600`. Later runs never replace that backup. Review it locally for settings that should be carried into the tracked override, then remove it manually when it is no longer needed.
+Before every successful replacement of an existing `cpa/config.yaml`, generation copies the existing file to `cpa/config.yaml.backup` with mode `0600`. Each run replaces the previous backup, so it always represents the effective configuration from immediately before the latest successful generation. The first generation does not create a backup when no effective config exists.
 
 ### 4. Add provider credentials
 
@@ -186,14 +188,15 @@ These checks prove that the HTTP processes are responding. They do not by themse
 | Path | Contents |
 | --- | --- |
 | `.env` | Compose secrets and CPA client API keys |
+| `cpa/config.yaml.override` | Operator-owned local CPA configuration overrides |
 | `cpa/config.yaml` | Generated effective CPA configuration |
-| `cpa/config.yaml.pre-generator` | Optional one-time backup of the former manual configuration |
+| `cpa/config.yaml.backup` | Previous effective CPA configuration, replaced on each successful generation |
 | `cpa/auths/` | Provider credentials and OAuth records |
 | `cpa/logs/` | CPA file logs when enabled |
 | `cpa/plugins/` | Optional persisted CPA plugins |
 | `keeper/` | Keeper's SQLite database, logs, and internally managed data |
 
-These paths are local and ignored by Git. The tracked inputs are `.env.example`, `cpa/config.yaml.example`, and `cpa/config.yaml.override`.
+These paths are local and ignored by Git. The tracked templates are `.env.example`, `cpa/config.yaml.example`, and `cpa/config.yaml.override.example`.
 
 Keeper may create internal backup files under its data directory, but this repository does not define or verify a disaster-recovery procedure.
 

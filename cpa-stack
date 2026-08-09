@@ -1,14 +1,12 @@
 #!/bin/sh
-
 set -eu
-
 umask 077
 
 script_dir=$(CDPATH= cd -P "$(dirname "$0")" && pwd)
 baseline="$script_dir/cpa/config.yaml.example"
 override="$script_dir/cpa/config.yaml.override"
 effective="$script_dir/cpa/config.yaml"
-backup="$script_dir/cpa/config.yaml.pre-generator"
+backup="$script_dir/cpa/config.yaml.backup"
 env_file="$script_dir/.env"
 
 compose_input=
@@ -71,11 +69,11 @@ generate() {
   yq eval-all 'select(fileIndex == 0) * select(fileIndex == 1)' "$baseline" "$resolved_override" >"$staged_effective" || fail "could not merge the CPA configuration layers"
   chmod 600 "$staged_effective" || fail "could not secure the effective configuration"
 
-  if [ -f "$effective" ] && [ ! -e "$backup" ]; then
-    staged_backup=$(mktemp "$script_dir/cpa/.config.yaml.pre-generator.XXXXXX") || fail "could not stage the pre-generator backup"
-    cp "$effective" "$staged_backup" || fail "could not copy the pre-generator configuration"
-    chmod 600 "$staged_backup" || fail "could not secure the pre-generator backup"
-    mv "$staged_backup" "$backup" || fail "could not preserve the pre-generator configuration"
+  if [ -f "$effective" ]; then
+    staged_backup=$(mktemp "$script_dir/cpa/.config.yaml.backup.XXXXXX") || fail "could not stage the configuration backup"
+    cp "$effective" "$staged_backup" || fail "could not copy the existing configuration"
+    chmod 600 "$staged_backup" || fail "could not secure the configuration backup"
+    mv "$staged_backup" "$backup" || fail "could not preserve the existing configuration"
     staged_backup=
   fi
 
