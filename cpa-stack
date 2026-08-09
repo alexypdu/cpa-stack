@@ -142,11 +142,8 @@ release_tag() {
   printf '%s\n' "$tag"
 }
 
-validate_image_manifest() {
-  image=$1
-  service_name=$2
-
-  docker manifest inspect "$image" >/dev/null || fail "$service_name image is not available: $image"
+image_manifest_available() {
+  docker manifest inspect "$1" >/dev/null 2>&1
 }
 
 validate_compose() {
@@ -211,17 +208,36 @@ sync() {
   download 'https://api.github.com/repos/Willxup/cpa-usage-keeper/releases/latest' "$keeper_release" 'Keeper release metadata'
   cpa_tag=$(release_tag "$cpa_release" CPA)
   keeper_tag=$(release_tag "$keeper_release" Keeper)
-  expected_cpa_image="eceasy/cli-proxy-api:$cpa_tag"
-  expected_keeper_image="ghcr.io/willxup/cpa-usage-keeper:$keeper_tag"
+  current_cpa_tag=${current_cpa_image#eceasy/cli-proxy-api:}
+  current_keeper_tag=${current_keeper_image#ghcr.io/willxup/cpa-usage-keeper:}
+  selected_cpa_image="eceasy/cli-proxy-api:$cpa_tag"
+  selected_keeper_image="ghcr.io/willxup/cpa-usage-keeper:$keeper_tag"
+  cpa_image_available=0
+  keeper_image_available=0
 
-  validate_image_manifest "$expected_cpa_image" CPA
-  validate_image_manifest "$expected_keeper_image" Keeper
+  if image_manifest_available "$selected_cpa_image"; then
+    cpa_image_available=1
+    expected_cpa_image=$selected_cpa_image
+    expected_cpa_tag=$cpa_tag
+    download "https://raw.githubusercontent.com/router-for-me/CLIProxyAPI/$cpa_tag/config.example.yaml" "$staged_baseline" "the CPA $cpa_tag upstream baseline"
+    [ -s "$staged_baseline" ] || fail "the CPA $cpa_tag upstream baseline is empty"
+    yq eval -e 'type == "!!map"' "$staged_baseline" >/dev/null 2>&1 || fail "the CPA $cpa_tag upstream baseline is not a valid YAML mapping"
+  else
+    expected_cpa_image=$current_cpa_image
+    expected_cpa_tag=$current_cpa_tag
+    cp -p "$baseline" "$staged_baseline" || fail "could not preserve the current upstream baseline"
+  fi
 
-  download "https://raw.githubusercontent.com/router-for-me/CLIProxyAPI/$cpa_tag/config.example.yaml" "$staged_baseline" "the CPA $cpa_tag upstream baseline"
-  [ -s "$staged_baseline" ] || fail "the CPA $cpa_tag upstream baseline is empty"
-  yq eval -e 'type == "!!map"' "$staged_baseline" >/dev/null 2>&1 || fail "the CPA $cpa_tag upstream baseline is not a valid YAML mapping"
+  if image_manifest_available "$selected_keeper_image"; then
+    keeper_image_available=1
+    expected_keeper_image=$selected_keeper_image
+    expected_keeper_tag=$keeper_tag
+  else
+    expected_keeper_image=$current_keeper_image
+    expected_keeper_tag=$current_keeper_tag
+  fi
 
-  stage_compose "$cpa_tag" "$keeper_tag"
+  stage_compose "$expected_cpa_tag" "$expected_keeper_tag"
   chmod 644 "$staged_compose" "$staged_baseline" || fail "could not set tracked artifact permissions"
 
   validate_compose "$staged_compose" "$expected_cpa_image" "$expected_keeper_image"
@@ -257,12 +273,16 @@ sync() {
     staged_baseline=
   fi
 
-  if [ "$cpa_changed" -eq 1 ]; then
+  if [ "$cpa_image_available" -eq 0 ]; then
+    printf 'CPA: selected %s, but its image is unavailable; kept %s.\n' "$cpa_tag" "$current_cpa_tag"
+  elif [ "$cpa_changed" -eq 1 ]; then
     printf 'CPA: selected %s (updated).\n' "$cpa_tag"
   else
     printf 'CPA: selected %s (unchanged).\n' "$cpa_tag"
   fi
-  if [ "$keeper_changed" -eq 1 ]; then
+  if [ "$keeper_image_available" -eq 0 ]; then
+    printf 'Keeper: selected %s, but its image is unavailable; kept %s.\n' "$keeper_tag" "$current_keeper_tag"
+  elif [ "$keeper_changed" -eq 1 ]; then
     printf 'Keeper: selected %s (updated).\n' "$keeper_tag"
   else
     printf 'Keeper: selected %s (unchanged).\n' "$keeper_tag"
@@ -277,6 +297,9 @@ sync() {
   fi
   if [ "$baseline_changed" -eq 1 ]; then
     printf 'Tracked artifact changed: cpa/config.yaml.example.\n'
+  fi
+  if [ "$cpa_changed" -eq 1 ] || [ "$baseline_changed" -eq 1 ]; then
+    printf 'Next: review the diff, then run ./cpa-stack generate before restarting the stack.\n'
   fi
 
   sync_compose_replaced=0
