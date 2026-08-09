@@ -213,7 +213,7 @@ Synchronize the latest stable CPA and Keeper releases:
 git diff -- docker-compose.yml cpa/config.yaml.example
 ```
 
-Synchronization discovers each service release independently, ignores drafts and prereleases, updates only the explicit image declarations and upstream baseline, and reports whether CPA, Keeper, and the baseline changed. It refuses to run when either tracked artifact already has staged or unstaged changes. It does not generate the effective config, pull images, or touch running containers.
+Synchronization discovers each service release independently, ignores drafts and prereleases, verifies that each matching container image manifest is available without pulling image layers, updates only the explicit image declarations and upstream baseline, and reports whether CPA, Keeper, and the baseline changed. It refuses to run when either tracked artifact already has staged or unstaged changes. It does not generate the effective config, pull images, or touch running containers.
 
 Review the upstream release notes and the focused Git diff before applying a synchronized release. Then generate the effective config and recreate the services as separate actions:
 

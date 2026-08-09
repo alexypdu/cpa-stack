@@ -90,6 +90,7 @@ require_generate_tools() {
 
 require_sync_tools() {
   command -v curl >/dev/null 2>&1 || fail "curl is required"
+  command -v docker >/dev/null 2>&1 || fail "Docker is required to verify image availability"
   command -v git >/dev/null 2>&1 || fail "Git is required"
   require_yq
 }
@@ -139,6 +140,13 @@ release_tag() {
   esac
 
   printf '%s\n' "$tag"
+}
+
+validate_image_manifest() {
+  image=$1
+  service_name=$2
+
+  docker manifest inspect "$image" >/dev/null || fail "$service_name image is not available: $image"
 }
 
 validate_compose() {
@@ -203,6 +211,11 @@ sync() {
   download 'https://api.github.com/repos/Willxup/cpa-usage-keeper/releases/latest' "$keeper_release" 'Keeper release metadata'
   cpa_tag=$(release_tag "$cpa_release" CPA)
   keeper_tag=$(release_tag "$keeper_release" Keeper)
+  expected_cpa_image="eceasy/cli-proxy-api:$cpa_tag"
+  expected_keeper_image="ghcr.io/willxup/cpa-usage-keeper:$keeper_tag"
+
+  validate_image_manifest "$expected_cpa_image" CPA
+  validate_image_manifest "$expected_keeper_image" Keeper
 
   download "https://raw.githubusercontent.com/router-for-me/CLIProxyAPI/$cpa_tag/config.example.yaml" "$staged_baseline" "the CPA $cpa_tag upstream baseline"
   [ -s "$staged_baseline" ] || fail "the CPA $cpa_tag upstream baseline is empty"
@@ -211,8 +224,6 @@ sync() {
   stage_compose "$cpa_tag" "$keeper_tag"
   chmod 644 "$staged_compose" "$staged_baseline" || fail "could not set tracked artifact permissions"
 
-  expected_cpa_image="eceasy/cli-proxy-api:$cpa_tag"
-  expected_keeper_image="ghcr.io/willxup/cpa-usage-keeper:$keeper_tag"
   validate_compose "$staged_compose" "$expected_cpa_image" "$expected_keeper_image"
 
   cpa_changed=0
