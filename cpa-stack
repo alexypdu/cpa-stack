@@ -46,11 +46,11 @@ require_generate_tools() {
   command -v docker >/dev/null 2>&1 || fail "Docker with Compose is required"
   docker compose version >/dev/null 2>&1 || fail "Docker Compose is required"
 
-  command -v yq >/dev/null 2>&1 || fail "Mike Farah yq v4 is required"
-  yq_version=$(yq --version 2>&1) || fail "could not determine yq version; Mike Farah yq v4 is required"
+  command -v yq >/dev/null 2>&1 || fail "Mike Farah yq is required"
+  yq_version=$(yq --version 2>&1) || fail "could not determine yq version; Mike Farah yq is required"
   case "$yq_version" in
-    *mikefarah/yq*"version v4."*) ;;
-    *) fail "incompatible yq implementation or version; Mike Farah yq v4 is required" ;;
+    *mikefarah/yq*) ;;
+    *) fail "incompatible yq implementation; Mike Farah yq is required" ;;
   esac
 }
 

@@ -26,7 +26,7 @@ Keeper connects to CPA over the Compose network. CPA must therefore accept manag
 
 ## Prerequisites
 
-The supported setup uses macOS, Homebrew, and Colima. Configuration generation requires [Mike Farah `yq`](https://github.com/mikefarah/yq) v4; other programs named `yq` are incompatible.
+The supported setup uses macOS, Homebrew, and Colima. Configuration generation requires [Mike Farah `yq`](https://github.com/mikefarah/yq); other programs named `yq` are incompatible.
 
 Install the required tools:
 
@@ -220,13 +220,13 @@ docker compose logs --tail=200 cpa-usage-keeper
 
 ### Configuration generation rejects `yq`
 
-Confirm that the command is Mike Farah `yq` v4:
+Confirm that the command is Mike Farah `yq`:
 
 ```sh
 yq --version
 ```
 
-Install or upgrade it with Homebrew if the output identifies another implementation or major version:
+Install or upgrade it with Homebrew if the output identifies another implementation:
 
 ```sh
 brew install yq
