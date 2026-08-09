@@ -26,7 +26,7 @@ Keeper connects to CPA over the Compose network. CPA must therefore accept manag
 
 ## Prerequisites
 
-The supported setup uses macOS, Homebrew, and Colima. Configuration generation requires [Mike Farah `yq`](https://github.com/mikefarah/yq); other programs named `yq` are incompatible.
+The supported setup uses macOS, Homebrew, and Colima. Release synchronization requires `curl` and Git. Configuration generation and synchronization require [Mike Farah `yq`](https://github.com/mikefarah/yq); other programs named `yq` are incompatible.
 
 Install the required tools:
 
@@ -40,6 +40,8 @@ Start Colima and verify the required commands are available:
 colima start
 docker version
 docker compose version
+curl --version
+git --version
 yq --version
 ```
 
@@ -202,9 +204,18 @@ Keeper may create internal backup files under its data directory, but this repos
 
 ## Updating pinned releases
 
-The Compose services use explicit stable release tags. The CPA image tag and `cpa/config.yaml.example` form one versioned unit: the baseline must remain byte-identical to `config.example.yaml` from the exact CPA tag declared in Compose.
+The Compose services use explicit stable release tags. The CPA image tag and `cpa/config.yaml.example` form one versioned unit: the upstream baseline must remain byte-identical to `config.example.yaml` from the exact CPA tag declared in Compose.
 
-When changing a declared release, review the upstream release notes and the resulting Git diff. After updating the pinned declarations and baseline, apply them with:
+Synchronize the latest stable CPA and Keeper releases:
+
+```sh
+./cpa-stack sync
+git diff -- docker-compose.yml cpa/config.yaml.example
+```
+
+Synchronization discovers each service release independently, ignores drafts and prereleases, and verifies each matching container image manifest without pulling image layers. CPA and Keeper advance independently: if one selected image is unavailable, synchronization keeps that service at its current version while still applying an available update for the other. An available CPA update also checks the exact-tag upstream baseline; when that baseline changes, synchronization prompts the operator to review the diff and regenerate the effective config. A CPA version change with a byte-identical baseline does not require regeneration. Synchronization refuses to run when either tracked artifact already has staged or unstaged changes. It does not generate the effective config, pull images, or touch running containers.
+
+Review the upstream release notes and the focused Git diff before applying a synchronized release. Then generate the effective config and recreate the services as separate actions:
 
 ```sh
 ./cpa-stack generate
@@ -212,7 +223,7 @@ docker compose up -d --force-recreate
 docker compose ps
 ```
 
-Recreating containers may fetch a missing declared image. It does not delete bind-mounted state. If the updated stack fails, inspect the service logs before making further changes:
+Recreating containers may fetch a missing declared image. It does not delete bind-mounted state. To reject a synchronized release before applying it, restore `docker-compose.yml` and `cpa/config.yaml.example`. If the updated stack fails, inspect the service logs before making further changes:
 
 ```sh
 docker compose logs --tail=200 cli-proxy-api
