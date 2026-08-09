@@ -2,7 +2,7 @@
 set -eu
 umask 077
 
-script_dir=$(CDPATH= cd -P "$(dirname "$0")" && pwd)
+script_dir=$(CDPATH='' cd -P "$(dirname "$0")" && pwd)
 compose_file="$script_dir/docker-compose.yml"
 baseline="$script_dir/cpa/config.yaml.example"
 override="$script_dir/cpa/config.yaml.override"
