@@ -51,3 +51,15 @@ CPA Stack configuration layered over the upstream baseline to express stack poli
 ## Effective config
 
 The complete CPA configuration produced by applying the stack override and resolving operator-supplied values against the upstream baseline. CPA consumes the effective config at runtime.
+
+## Release sync
+
+The operation that aligns CPA Stack's pinned images and upstream baseline with the latest usable stable CPA and Keeper releases.
+
+## Config generation
+
+The operation that produces the effective config from the upstream baseline, Stack override, and operator-supplied values.
+
+## Stack restart
+
+The operation that recreates CPA and Keeper using the currently pinned images and effective config.
