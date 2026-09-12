@@ -10,4 +10,6 @@ Synthetic characterization selected Keeper `v2.0.0`, inspected `ghcr.io/willxup/
 Keeper: selected v1.0.0, but its image is unavailable; kept v1.0.0.
 ```
 
-**Status:** documented, not fixed. The TypeScript sync ticket must preserve this observable behavior or obtain explicit approval to correct it.
+**Status:** correction approved on 2026-09-12 during issue #15 implementation. The operator explicitly requested: “keep the correct message.” TypeScript reports the actual selected release and the retained release. For this example, it reports selected `v2.0.0` and kept `v1.0.0`. This approval changes only the diagnostic. Image selection and retention do not change.
+
+The saved shell output in `command-records.json` remains unchanged as historical evidence. The TypeScript command tests in `test/sync.test.ts` check the approved output.

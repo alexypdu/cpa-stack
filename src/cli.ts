@@ -3,7 +3,8 @@ import { Lifecycle } from "./lifecycle.ts";
 import type { RepositoryPaths } from "./paths.ts";
 import { signalExitStatuses } from "./signals.ts";
 
-const usage = "Usage: cpa-stack {sync|generate|restart}\n";
+const usage =
+  "Usage: cpa-stack {sync|generate|restart}\nRequires Node.js >=24.12.0.\n";
 
 type CommandName = "sync" | "generate" | "restart";
 
