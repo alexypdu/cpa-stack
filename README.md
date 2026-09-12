@@ -59,7 +59,7 @@ Run the setup commands from the repository root.
 5. Start CPA and Keeper:
 
    ```sh
-   pnpm restart
+   pnpm bounce
    ```
 
 Open [Keeper](http://127.0.0.1:8318). Sign in with the value of `CPA_KEEPER_LOGIN_PASSWORD`.
@@ -72,15 +72,15 @@ Run these commands from the repository root.
 | --- | --- | --- |
 | `pnpm sync` | Release sync | Update image pins for available stable releases and the matching upstream baseline. |
 | `pnpm generate` | Config generation | Apply the stack override to the upstream baseline. Write the effective config. |
-| `pnpm restart` | Stack restart | Recreate CPA and Keeper with the current image pins and effective config. |
+| `pnpm bounce` | Stack bounce | Recreate CPA and Keeper with the current image pins and effective config. |
 
 Run each operation explicitly. Release sync is optional for the first start.
 
-After you change `.env` or the stack override, run `generate`, then `restart`.
+After you change `.env` or the stack override, run `generate`, then `bounce`.
 
-After release sync, review the changes. If the upstream baseline changed, run `generate` before `restart`.
+After release sync, review the changes. If the upstream baseline changed, run `generate`, then `bounce`.
 
-**Restart limit:** Success means that neither service was reported as exited immediately after recreation. It does not prove health or readiness.
+**Bounce limit:** Success means that neither service was reported as exited immediately after recreation. It does not prove health or readiness.
 
 ## Architecture
 

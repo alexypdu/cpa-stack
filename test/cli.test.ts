@@ -86,7 +86,7 @@ test("invalid usage prints help to stderr and exits 2", async (t) => {
     assert.equal(result.stdout, "");
     assert.equal(
       result.stderr,
-      "Usage: cpa-stack {sync|generate|restart}\nRequires Node.js >=24.12.0.\n",
+      "Usage: cpa-stack {sync|generate|bounce}\nRequires Node.js >=24.12.0.\n",
     );
   }
 });
@@ -118,7 +118,7 @@ test("external commands preserve argv and expose their result", async (t) => {
     "key: value",
   ];
 
-  const result = checkout.runFixtureCli(["restart"], {
+  const result = checkout.runFixtureCli(["bounce"], {
     FIXTURE_EXECUTABLE: executable,
     FIXTURE_ARGS: JSON.stringify(expectedArgs),
     COMMAND_LOG: logPath,
@@ -148,7 +148,7 @@ test("a failed external command triggers rollback and cleanup", async (t) => {
     "#!/bin/sh\nexit 7\n",
   );
 
-  const result = checkout.runFixtureCli(["restart"], {
+  const result = checkout.runFixtureCli(["bounce"], {
     FIXTURE_ACTION: "external-failure",
     FIXTURE_EXECUTABLE: executable,
     FIXTURE_ARGS: "[]",
@@ -233,7 +233,7 @@ for (const [signal, expectedStatus] of [
       "block-command",
       `#!/usr/bin/env node\nimport { writeFileSync } from "node:fs";\nwriteFileSync(process.env.READY_FILE, "ready");\nsetInterval(() => {}, 1000);\n`,
     );
-    const child = checkout.startFixtureCli(["restart"], {
+    const child = checkout.startFixtureCli(["bounce"], {
       FIXTURE_ACTION: "signal",
       FIXTURE_EXECUTABLE: executable,
       FIXTURE_ARGS: "[]",

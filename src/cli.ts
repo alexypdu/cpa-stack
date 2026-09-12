@@ -4,9 +4,9 @@ import type { RepositoryPaths } from "./paths.ts";
 import { signalExitStatuses } from "./signals.ts";
 
 const usage =
-  "Usage: cpa-stack {sync|generate|restart}\nRequires Node.js >=24.12.0.\n";
+  "Usage: cpa-stack {sync|generate|bounce}\nRequires Node.js >=24.12.0.\n";
 
-type CommandName = "sync" | "generate" | "restart";
+type CommandName = "sync" | "generate" | "bounce";
 
 export interface OperationContext {
   lifecycle: Lifecycle;
@@ -23,7 +23,7 @@ export interface CliOptions {
 }
 
 function isCommandName(value: string): value is CommandName {
-  return value === "sync" || value === "generate" || value === "restart";
+  return value === "sync" || value === "generate" || value === "bounce";
 }
 
 export async function executeCli(options: CliOptions): Promise<number> {

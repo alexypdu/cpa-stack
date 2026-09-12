@@ -60,6 +60,6 @@ The operation that aligns CPA Stack's pinned images and upstream baseline with t
 
 The operation that produces the effective config from the upstream baseline, Stack override, and operator-supplied values.
 
-## Stack restart
+## Stack bounce
 
 The operation that recreates CPA and Keeper using the currently pinned images and effective config.

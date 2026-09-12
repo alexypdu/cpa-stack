@@ -8,7 +8,7 @@
     "sync": "node ./bin/cpa-stack.ts sync",
     "test": "node --test test/*.test.ts",
     "test:compose": "node --test test/integration/*.test.ts",
-    "restart": "node bin/cpa-stack.ts restart",
+    "bounce": "node bin/cpa-stack.ts bounce",
     "typecheck": "tsc --noEmit",
     "lint": "oxlint --deny-warnings bin src test",
     "lint:fix": "pnpm run lint --fix",
