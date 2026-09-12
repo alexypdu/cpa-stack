@@ -157,7 +157,7 @@ export async function createTestCheckout(): Promise<TestCheckout> {
         {
           cwd: outsideRoot,
           encoding: "utf8",
-          env: { ...process.env, ...env },
+          env: isolatedGitEnvironment(env),
         },
       );
     },
@@ -165,7 +165,7 @@ export async function createTestCheckout(): Promise<TestCheckout> {
       return spawnSync(join(root, "cpa-stack"), args, {
         cwd: outsideRoot,
         encoding: "utf8",
-        env: { ...process.env, ...env },
+        env: isolatedGitEnvironment(env),
       });
     },
     runFixtureCli(args, env = {}) {
@@ -175,7 +175,7 @@ export async function createTestCheckout(): Promise<TestCheckout> {
         {
           cwd: outsideRoot,
           encoding: "utf8",
-          env: { ...process.env, ...env },
+          env: isolatedGitEnvironment(env),
         },
       );
     },
@@ -185,7 +185,7 @@ export async function createTestCheckout(): Promise<TestCheckout> {
         [join(root, "test/fixtures/fixture-cli.ts"), ...args],
         {
           cwd: outsideRoot,
-          env: { ...process.env, ...env },
+          env: isolatedGitEnvironment(env),
           stdio: ["pipe", "pipe", "pipe"],
         },
       );
