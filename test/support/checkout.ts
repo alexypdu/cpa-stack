@@ -1,4 +1,10 @@
 import {
+  spawn,
+  spawnSync,
+  type ChildProcessWithoutNullStreams,
+  type SpawnSyncReturns,
+} from "node:child_process";
+import {
   chmod,
   cp,
   mkdtemp,
@@ -10,12 +16,6 @@ import {
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import {
-  spawn,
-  spawnSync,
-  type ChildProcessWithoutNullStreams,
-  type SpawnSyncReturns,
-} from "node:child_process";
 
 const sourceRoot = fileURLToPath(new URL("../..", import.meta.url));
 
