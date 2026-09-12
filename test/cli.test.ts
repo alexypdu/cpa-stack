@@ -2,21 +2,8 @@ import assert from "node:assert/strict";
 import { access, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import test from "node:test";
-import { setTimeout as delay } from "node:timers/promises";
 
-import { createTestCheckout } from "./support/checkout.ts";
-
-async function waitForPath(path: string): Promise<void> {
-  for (let attempt = 0; attempt < 200; attempt += 1) {
-    try {
-      await access(path);
-      return;
-    } catch {
-      await delay(10);
-    }
-  }
-  throw new Error(`timed out waiting for ${path}`);
-}
+import { createTestCheckout, waitForPath } from "./support/checkout.ts";
 
 test("the harness creates a clean synthetic checkout", async (t) => {
   const checkout = await createTestCheckout();
@@ -46,6 +33,7 @@ test("package metadata exposes the local CLI on supported Node", async (t) => {
     packageJson.scripts["test:compose"],
     "node --test test/integration/*.test.ts",
   );
+  assert.equal(packageJson.scripts.generate, "node bin/cpa-stack.ts generate");
   assert.equal(packageJson.scripts.typecheck, "tsc --noEmit");
 });
 

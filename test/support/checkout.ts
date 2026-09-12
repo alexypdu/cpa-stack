@@ -5,24 +5,39 @@ import {
   type SpawnSyncReturns,
 } from "node:child_process";
 import {
+  access,
   chmod,
   cp,
   mkdtemp,
   mkdir,
   realpath,
   rm,
+  symlink,
   writeFile,
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
+import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 
 const sourceRoot = fileURLToPath(new URL("../..", import.meta.url));
 
+export async function waitForPath(path: string): Promise<void> {
+  for (let attempt = 0; attempt < 200; attempt += 1) {
+    try {
+      await access(path);
+      return;
+    } catch {
+      await delay(10);
+    }
+  }
+  throw new Error(`timed out waiting for ${path}`);
+}
+
 export interface TestCheckout {
   root: string;
   outsideRoot: string;
-  runCli(args: string[]): SpawnSyncReturns<string>;
+  runCli(args: string[], env?: NodeJS.ProcessEnv): SpawnSyncReturns<string>;
   runLegacyCli(
     args: string[],
     env?: NodeJS.ProcessEnv,
@@ -60,6 +75,11 @@ export async function createTestCheckout(): Promise<TestCheckout> {
   ]) {
     await cp(join(sourceRoot, path), join(root, path), { recursive: true });
   }
+  await symlink(
+    join(sourceRoot, "node_modules"),
+    join(root, "node_modules"),
+    "dir",
+  );
 
   await mkdir(join(root, "cpa"), { recursive: true });
   await writeFile(
@@ -95,14 +115,14 @@ export async function createTestCheckout(): Promise<TestCheckout> {
   return {
     root,
     outsideRoot,
-    runCli(args) {
+    runCli(args, env = {}) {
       return spawnSync(
         process.execPath,
         [join(root, "bin/cpa-stack.ts"), ...args],
         {
           cwd: outsideRoot,
           encoding: "utf8",
-          env: { ...process.env },
+          env: { ...process.env, ...env },
         },
       );
     },
