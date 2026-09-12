@@ -11,6 +11,15 @@ CPA sends client requests to an upstream provider. Keeper reads the usage feed f
 - Docker with Compose and a running Docker environment, such as [Colima](https://github.com/abiosoft/colima).
 - Git and curl.
 
+To install the Node.js and pnpm versions pinned in `mise.toml`, install and [activate mise](https://mise.jdx.dev/getting-started.html), then run from the repository root:
+
+```sh
+mise trust
+mise install
+```
+
+Docker with Compose, Git, and curl remain system prerequisites.
+
 For first-time pnpm setup, run `pnpm setup` and open a new shell.
 
 ## Quick start
