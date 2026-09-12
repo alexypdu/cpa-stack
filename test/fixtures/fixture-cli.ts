@@ -23,13 +23,19 @@ process.exitCode = await executeCli({
       const temporary = process.env.FIXTURE_TEMPORARY;
       const target = process.env.FIXTURE_TARGET;
       const rollback = process.env.FIXTURE_ROLLBACK;
-      if (temporary === undefined || target === undefined || rollback === undefined) {
+      if (
+        temporary === undefined ||
+        target === undefined ||
+        rollback === undefined
+      ) {
         throw new OperationalError("fixture paths are required");
       }
 
       lifecycle.trackTemporary(temporary);
       lifecycle.trackTemporary(rollback);
-      const disarm = lifecycle.onFailure(async () => copyFile(rollback, target));
+      const disarm = lifecycle.onFailure(async () =>
+        copyFile(rollback, target),
+      );
       if (action === "cleanup-success") {
         disarm();
         return;
@@ -51,7 +57,11 @@ process.exitCode = await executeCli({
         const temporary = process.env.FIXTURE_TEMPORARY;
         const target = process.env.FIXTURE_TARGET;
         const rollback = process.env.FIXTURE_ROLLBACK;
-        if (temporary === undefined || target === undefined || rollback === undefined) {
+        if (
+          temporary === undefined ||
+          target === undefined ||
+          rollback === undefined
+        ) {
           throw new OperationalError("fixture paths are required");
         }
         lifecycle.trackTemporary(temporary);

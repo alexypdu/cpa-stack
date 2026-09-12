@@ -111,7 +111,9 @@ test("shell generation rotates the backup and removes intermediates", async (t) 
   assert.deepEqual(await readFile(override), overrideBytes);
   assert.deepEqual(await readdir(temporaryRoot), []);
   assert.deepEqual(
-    (await readdir(join(checkout.root, "cpa"))).filter((name) => name.startsWith(".")),
+    (await readdir(join(checkout.root, "cpa"))).filter((name) =>
+      name.startsWith("."),
+    ),
     [],
   );
 });
@@ -121,7 +123,10 @@ test("shell restart reports an immediately exited service without hidden pulls",
   t.after(() => checkout.cleanup());
   const docker = await checkout.installCommand("docker", fakeDocker);
   const commandLog = join(checkout.root, "docker-commands.jsonl");
-  await writeFile(join(checkout.root, "cpa/config.yaml"), "synthetic: effective\n");
+  await writeFile(
+    join(checkout.root, "cpa/config.yaml"),
+    "synthetic: effective\n",
+  );
 
   const result = checkout.runLegacyCli(["restart"], {
     PATH: `${dirname(docker)}:${process.env.PATH ?? ""}`,
@@ -138,8 +143,14 @@ test("shell restart reports an immediately exited service without hidden pulls",
     result.stderr,
     "cpa-stack: service exited during startup: cli-proxy-api\n",
   );
-  assert.ok(commands.some((args) => args.includes("up") && args.includes("--force-recreate")));
-  assert.ok(commands.some((args) => args.includes("ps") && args.includes("exited")));
+  assert.ok(
+    commands.some(
+      (args) => args.includes("up") && args.includes("--force-recreate"),
+    ),
+  );
+  assert.ok(
+    commands.some((args) => args.includes("ps") && args.includes("exited")),
+  );
   assert.ok(commands.every((args) => !args.includes("pull")));
 });
 
@@ -161,7 +172,10 @@ test("shell sync advances only the service with an available image", async (t) =
     KEEPER_AVAILABLE: "false",
     BASELINE_BYTES: "port: 9000\n",
   });
-  const compose = await readFile(join(checkout.root, "docker-compose.yml"), "utf8");
+  const compose = await readFile(
+    join(checkout.root, "docker-compose.yml"),
+    "utf8",
+  );
   const commands = (await readFile(commandLog, "utf8"))
     .trim()
     .split("\n")
@@ -172,12 +186,22 @@ test("shell sync advances only the service with an available image", async (t) =
   assert.match(compose, /cpa-usage-keeper:v1\.0\.0/);
   assert.equal(await readFile(baseline, "utf8"), "port: 9000\n");
   assert.ok(
-    commands.some((args) => args.includes("ghcr.io/willxup/cpa-usage-keeper:v2.0.0")),
+    commands.some((args) =>
+      args.includes("ghcr.io/willxup/cpa-usage-keeper:v2.0.0"),
+    ),
     JSON.stringify(commands),
   );
-  assert.match(result.stdout, /Keeper: selected v1\.0\.0, but its image is unavailable; kept v1\.0\.0\./);
-  assert.match(result.stdout, /Next: review the diff, then run \.\/cpa-stack generate/);
-  assert.ok(commands.some((args) => args[0] === "docker" && args[1] === "manifest"));
+  assert.match(
+    result.stdout,
+    /Keeper: selected v1\.0\.0, but its image is unavailable; kept v1\.0\.0\./,
+  );
+  assert.match(
+    result.stdout,
+    /Next: review the diff, then run \.\/cpa-stack generate/,
+  );
+  assert.ok(
+    commands.some((args) => args[0] === "docker" && args[1] === "manifest"),
+  );
   assert.ok(commands.every((args) => !args.includes("pull")));
 });
 

@@ -32,7 +32,10 @@ interface CommandRecords {
 }
 
 const compatibility = JSON.parse(
-  await readFile(new URL("./fixtures/compatibility/manifest.json", import.meta.url), "utf8"),
+  await readFile(
+    new URL("./fixtures/compatibility/manifest.json", import.meta.url),
+    "utf8",
+  ),
 ) as CompatibilityManifest;
 const commandRecords = JSON.parse(
   await readFile(
@@ -98,7 +101,11 @@ test("lossy YAML boundaries remain explicit compatibility concerns", () => {
     .map(({ id }) => id)
     .sort();
 
-  assert.deepEqual(concerns, ["custom-tags", "duplicate-keys", "multiple-documents"]);
+  assert.deepEqual(concerns, [
+    "custom-tags",
+    "duplicate-keys",
+    "multiple-documents",
+  ]);
 });
 
 test("saved command records cover historical regression behavior", () => {
@@ -114,7 +121,10 @@ test("saved command records cover historical regression behavior", () => {
     ].filter((id) => !ids.has(id)),
     [],
   );
-  assert.ok(commandRecords.records.every(({ command }) =>
-    command === "sync" || command === "generate" || command === "restart"
-  ));
+  assert.ok(
+    commandRecords.records.every(
+      ({ command }) =>
+        command === "sync" || command === "generate" || command === "restart",
+    ),
+  );
 });
