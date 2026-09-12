@@ -98,6 +98,7 @@ test("package metadata exposes the local CLI on supported Node", async (t) => {
 
   assert.deepEqual(packageJson.bin, { "cpa-stack": "./bin/cpa-stack.ts" });
   assert.equal(packageJson.engines.node, ">=24.12.0");
+  assert.equal(packageJson.scripts.sync, "node ./bin/cpa-stack.ts sync");
   assert.equal(packageJson.scripts.test, "node --test test/*.test.ts");
   assert.equal(
     packageJson.scripts["test:compose"],
