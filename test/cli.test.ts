@@ -1,22 +1,18 @@
 import assert from "node:assert/strict";
-import { access, readFile, writeFile } from "node:fs/promises";
+import { spawnSync } from "node:child_process";
+import {
+  access,
+  mkdtemp,
+  mkdir,
+  readFile,
+  rm,
+  writeFile,
+} from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
-import { setTimeout as delay } from "node:timers/promises";
 
-import { createTestCheckout } from "./support/checkout.ts";
-
-async function waitForPath(path: string): Promise<void> {
-  for (let attempt = 0; attempt < 200; attempt += 1) {
-    try {
-      await access(path);
-      return;
-    } catch {
-      await delay(10);
-    }
-  }
-  throw new Error(`timed out waiting for ${path}`);
-}
+import { createTestCheckout, waitForPath } from "./support/checkout.ts";
 
 test("the harness creates a clean synthetic checkout", async (t) => {
   const checkout = await createTestCheckout();
@@ -30,6 +26,67 @@ test("the harness creates a clean synthetic checkout", async (t) => {
   );
   const status = checkout.runFixtureCli(["sync"]);
   assert.equal(status.status, 0);
+});
+
+test("the harness isolates synthetic repositories from inherited Git hook state", async (t) => {
+  const workspace = await mkdtemp(join(tmpdir(), "cpa-stack-git-env-test-"));
+  t.after(() => rm(workspace, { force: true, recursive: true }));
+  const outer = join(workspace, "outer");
+  await mkdir(outer);
+  const cleanEnvironment = {
+    HOME: process.env.HOME,
+    HUSKY: "0",
+    PATH: process.env.PATH,
+    TMPDIR: process.env.TMPDIR,
+  };
+  const runOuterGit = (args: string[]) =>
+    spawnSync("git", args, {
+      cwd: outer,
+      encoding: "utf8",
+      env: cleanEnvironment,
+    });
+  assert.equal(runOuterGit(["init", "-q"]).status, 0);
+  await writeFile(join(outer, "marker"), "outer repository\n");
+  assert.equal(runOuterGit(["add", "."]).status, 0);
+  assert.equal(
+    runOuterGit([
+      "-c",
+      "user.name=CPA Stack Tests",
+      "-c",
+      "user.email=tests@example.invalid",
+      "commit",
+      "--no-verify",
+      "-qm",
+      "test: initialize outer repository",
+    ]).status,
+    0,
+  );
+  const originalHead = runOuterGit(["rev-parse", "HEAD"]).stdout.trim();
+  const supportUrl = new URL("./support/checkout.ts", import.meta.url).href;
+
+  const result = spawnSync(
+    process.execPath,
+    [
+      "--input-type=module",
+      "--eval",
+      `import { createTestCheckout } from ${JSON.stringify(supportUrl)}; const checkout = await createTestCheckout(); await checkout.cleanup();`,
+    ],
+    {
+      encoding: "utf8",
+      env: {
+        ...cleanEnvironment,
+        GIT_DIR: join(outer, ".git"),
+        GIT_INDEX_FILE: join(outer, ".git/index"),
+        GIT_PREFIX: "synthetic-hook-prefix/",
+        GIT_WORK_TREE: outer,
+        HUSKY: "2",
+      },
+    },
+  );
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(runOuterGit(["rev-parse", "HEAD"]).stdout.trim(), originalHead);
+  assert.equal(runOuterGit(["status", "--porcelain"]).stdout, "");
 });
 
 test("package metadata exposes the local CLI on supported Node", async (t) => {
@@ -46,6 +103,7 @@ test("package metadata exposes the local CLI on supported Node", async (t) => {
     packageJson.scripts["test:compose"],
     "node --test test/integration/*.test.ts",
   );
+  assert.equal(packageJson.scripts.generate, "node bin/cpa-stack.ts generate");
   assert.equal(packageJson.scripts.typecheck, "tsc --noEmit");
 });
 

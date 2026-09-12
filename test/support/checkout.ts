@@ -5,24 +5,70 @@ import {
   type SpawnSyncReturns,
 } from "node:child_process";
 import {
+  access,
   chmod,
   cp,
   mkdtemp,
   mkdir,
   realpath,
   rm,
+  symlink,
   writeFile,
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
+import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 
 const sourceRoot = fileURLToPath(new URL("../..", import.meta.url));
+const gitLocalEnvironmentVariables = [
+  "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+  "GIT_COMMON_DIR",
+  "GIT_CONFIG",
+  "GIT_CONFIG_COUNT",
+  "GIT_CONFIG_PARAMETERS",
+  "GIT_DIR",
+  "GIT_GRAFT_FILE",
+  "GIT_IMPLICIT_WORK_TREE",
+  "GIT_INDEX_FILE",
+  "GIT_NO_REPLACE_OBJECTS",
+  "GIT_OBJECT_DIRECTORY",
+  "GIT_PREFIX",
+  "GIT_REPLACE_REF_BASE",
+  "GIT_SHALLOW_FILE",
+  "GIT_WORK_TREE",
+];
+
+export function isolatedGitEnvironment(
+  overrides: NodeJS.ProcessEnv = {},
+): NodeJS.ProcessEnv {
+  const environment: NodeJS.ProcessEnv = {
+    ...process.env,
+    ...overrides,
+    HUSKY: "0",
+  };
+  for (const name of gitLocalEnvironmentVariables) {
+    delete environment[name];
+  }
+  return environment;
+}
+
+export async function waitForPath(path: string): Promise<void> {
+  for (let attempt = 0; attempt < 200; attempt += 1) {
+    try {
+      await access(path);
+      return;
+    } catch {
+      await delay(10);
+    }
+  }
+  throw new Error(`timed out waiting for ${path}`);
+}
 
 export interface TestCheckout {
   root: string;
   outsideRoot: string;
-  runCli(args: string[]): SpawnSyncReturns<string>;
+  runCli(args: string[], env?: NodeJS.ProcessEnv): SpawnSyncReturns<string>;
   runLegacyCli(
     args: string[],
     env?: NodeJS.ProcessEnv,
@@ -60,6 +106,11 @@ export async function createTestCheckout(): Promise<TestCheckout> {
   ]) {
     await cp(join(sourceRoot, path), join(root, path), { recursive: true });
   }
+  await symlink(
+    join(sourceRoot, "node_modules"),
+    join(root, "node_modules"),
+    "dir",
+  );
 
   await mkdir(join(root, "cpa"), { recursive: true });
   await writeFile(
@@ -86,7 +137,11 @@ export async function createTestCheckout(): Promise<TestCheckout> {
     ["add", "."],
     ["commit", "-qm", "test: initialize synthetic checkout"],
   ]) {
-    const result = spawnSync("git", args, { cwd: root, encoding: "utf8" });
+    const result = spawnSync("git", args, {
+      cwd: root,
+      encoding: "utf8",
+      env: isolatedGitEnvironment(),
+    });
     if (result.status !== 0) {
       throw new Error(`could not initialize test checkout: ${result.stderr}`);
     }
@@ -95,14 +150,14 @@ export async function createTestCheckout(): Promise<TestCheckout> {
   return {
     root,
     outsideRoot,
-    runCli(args) {
+    runCli(args, env = {}) {
       return spawnSync(
         process.execPath,
         [join(root, "bin/cpa-stack.ts"), ...args],
         {
           cwd: outsideRoot,
           encoding: "utf8",
-          env: { ...process.env },
+          env: isolatedGitEnvironment(env),
         },
       );
     },
@@ -110,7 +165,7 @@ export async function createTestCheckout(): Promise<TestCheckout> {
       return spawnSync(join(root, "cpa-stack"), args, {
         cwd: outsideRoot,
         encoding: "utf8",
-        env: { ...process.env, ...env },
+        env: isolatedGitEnvironment(env),
       });
     },
     runFixtureCli(args, env = {}) {
@@ -120,7 +175,7 @@ export async function createTestCheckout(): Promise<TestCheckout> {
         {
           cwd: outsideRoot,
           encoding: "utf8",
-          env: { ...process.env, ...env },
+          env: isolatedGitEnvironment(env),
         },
       );
     },
@@ -130,7 +185,7 @@ export async function createTestCheckout(): Promise<TestCheckout> {
         [join(root, "test/fixtures/fixture-cli.ts"), ...args],
         {
           cwd: outsideRoot,
-          env: { ...process.env, ...env },
+          env: isolatedGitEnvironment(env),
           stdio: ["pipe", "pipe", "pipe"],
         },
       );

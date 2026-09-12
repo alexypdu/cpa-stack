@@ -2,6 +2,7 @@
 
 import { executeCli, type Operation } from "../src/cli.ts";
 import { OperationalError } from "../src/errors.ts";
+import { generate } from "../src/generate.ts";
 import { resolveRepositoryPaths } from "../src/paths.ts";
 
 const paths = resolveRepositoryPaths(new URL("..", import.meta.url));
@@ -14,7 +15,7 @@ process.exitCode = await executeCli({
   paths,
   operations: {
     sync: pendingOperation,
-    generate: pendingOperation,
+    generate,
     restart: pendingOperation,
   },
 });
