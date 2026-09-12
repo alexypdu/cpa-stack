@@ -88,24 +88,21 @@ After release sync, review the changes. If the upstream baseline changed, run `g
 
 ## Read a client API key
 
-Use the quiet command form when you capture a key:
+Read a key from this repository's `.env`:
 
-```sh
-pnpm --silent run client-api-key
-pnpm --silent run client-api-key claude-code
-```
+| Command | Variable |
+| --- | --- |
+| `pnpm --silent run client-api-key` | `CPA_CLIENT_API_KEY` |
+| `pnpm --silent run client-api-key claude-code` | `CPA_CLIENT_API_KEY_CLAUDE_CODE` |
+| `pnpm --silent run client-api-key pi` | `CPA_CLIENT_API_KEY_PI` |
 
-With no argument, the command reads `CPA_CLIENT_API_KEY`. A client name selects `CPA_CLIENT_API_KEY_<SUFFIX>`: lowercase letters become uppercase, and hyphens become underscores. For example, `claude-code` selects `CPA_CLIENT_API_KEY_CLAUDE_CODE` and `pi` selects `CPA_CLIENT_API_KEY_PI`. Names must contain lowercase ASCII letters or digits, with single hyphens between groups. Empty arguments and extra arguments are errors.
+Use lowercase client names with hyphens. To add `new-tool`, define `CPA_CLIENT_API_KEY_NEW_TOOL` in `.env`. Add its reference to `api-keys` in the stack override.
 
-Add a variable such as `CPA_CLIENT_API_KEY_NEW_TOOL` to enable lookup with `new-tool`. Add its reference to `api-keys` in your local stack override to let CPA accept that key. The templates include the generic key and four client-specific keys. Existing installations can keep their generic-key configuration; add client-specific variables and references as needed.
-
-The reader always uses this repository's `.env`, not the caller's `.env` or inherited environment values. It uses Node.js `.env` parsing: quotes and comments are supported, and the last duplicate assignment wins. Values are literal; variable references and shell commands are not expanded or executed. Use single-quoted literal keys so Compose and the reader agree. **Compose can still prefer inherited environment values.** The reader does not report CPA's effective runtime configuration.
-
-Success writes only the key, with no trailing newline. An explicit client never falls back to the generic key. Missing or empty keys and unreadable files exit with status `1`; invalid arguments exit with status `2`. Errors go to stderr, without key values or partial stdout. Running the command directly displays the secret in your terminal.
+Use literal key values. The command ignores inherited environment values. It returns only the selected key. A missing or empty key causes an error, not a switch to the generic key.
 
 ### Use from another directory
 
-Add this helper to your shell configuration. Adjust the repository path for your checkout:
+Add this function to your shell configuration. Set the path to your checkout:
 
 ```sh
 cpa_client_api_key() {
@@ -113,17 +110,14 @@ cpa_client_api_key() {
 }
 ```
 
-The calling shell must already have pnpm and compatible Node.js on `PATH`. The helper does not activate mise or install tools. It does not change the calling shell's directory.
+Node.js and pnpm must be available in the calling shell.
 
-Capture the key inside an agent launch function, and stop if lookup fails:
+Inside an agent launch function, capture the key and stop on failure:
 
 ```sh
 local client_api_key
 client_api_key="$(cpa_client_api_key claude-code)" || return $?
-# Pass "$client_api_key" to the agent's authentication environment variable.
 ```
-
-After you edit the helper, open a new shell. Lookup does not generate configuration or start services; after changing a key, run `pnpm generate`, then `pnpm bounce` to apply it to CPA.
 
 ## Architecture
 
