@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { access, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { setTimeout as delay } from "node:timers/promises";
 import test from "node:test";
+import { setTimeout as delay } from "node:timers/promises";
 
 import { createTestCheckout } from "./support/checkout.ts";
 
@@ -81,7 +81,13 @@ test("external commands preserve argv and expose their result", async (t) => {
     "record-command",
     `#!/usr/bin/env node\nimport { writeFileSync } from "node:fs";\nwriteFileSync(process.env.COMMAND_LOG, JSON.stringify(process.argv.slice(2)));\nprocess.stdout.write("controlled stdout");\nprocess.stderr.write("controlled stderr");\nprocess.exitCode = 7;\n`,
   );
-  const expectedArgs = ["two words", `single'quote`, 'double"quote', "$VALUE", "key: value"];
+  const expectedArgs = [
+    "two words",
+    `single'quote`,
+    'double"quote',
+    "$VALUE",
+    "key: value",
+  ];
 
   const result = checkout.runFixtureCli(["restart"], {
     FIXTURE_EXECUTABLE: executable,
@@ -123,7 +129,10 @@ test("a failed external command triggers rollback and cleanup", async (t) => {
   });
 
   assert.equal(result.status, 1);
-  assert.equal(result.stderr, "cpa-stack: synthetic command failed with status 7\n");
+  assert.equal(
+    result.stderr,
+    "cpa-stack: synthetic command failed with status 7\n",
+  );
   await assert.rejects(access(temporary));
   await assert.rejects(access(rollback));
   assert.equal(await readFile(target, "utf8"), "original");
@@ -212,8 +221,13 @@ for (const [signal, expectedStatus] of [
 
     await waitForPath(ready);
     child.kill(signal);
-    const result = await new Promise<{ code: number | null; signal: NodeJS.Signals | null }>(
-      (resolve) => child.once("close", (code, exitSignal) => resolve({ code, signal: exitSignal })),
+    const result = await new Promise<{
+      code: number | null;
+      signal: NodeJS.Signals | null;
+    }>((resolve) =>
+      child.once("close", (code, exitSignal) =>
+        resolve({ code, signal: exitSignal }),
+      ),
     );
 
     assert.deepEqual(result, { code: expectedStatus, signal: null });

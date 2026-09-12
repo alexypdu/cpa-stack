@@ -27,7 +27,11 @@ function isCommandName(value: string): value is CommandName {
 
 export async function executeCli(options: CliOptions): Promise<number> {
   const [command] = options.args;
-  if (options.args.length !== 1 || command === undefined || !isCommandName(command)) {
+  if (
+    options.args.length !== 1 ||
+    command === undefined ||
+    !isCommandName(command)
+  ) {
     process.stderr.write(usage);
     return 2;
   }
@@ -35,17 +39,19 @@ export async function executeCli(options: CliOptions): Promise<number> {
   const lifecycle = new Lifecycle();
   let status = 0;
   let signalStatus: number | undefined;
-  const signalHandlers = Object.entries(signalExitStatuses).map(([signal, exitStatus]) => {
-    const handler = () => {
-      if (signalStatus !== undefined) {
-        return;
-      }
-      signalStatus = exitStatus;
-      lifecycle.abortController.abort();
-    };
-    process.on(signal, handler);
-    return [signal, handler] as const;
-  });
+  const signalHandlers = Object.entries(signalExitStatuses).map(
+    ([signal, exitStatus]) => {
+      const handler = () => {
+        if (signalStatus !== undefined) {
+          return;
+        }
+        signalStatus = exitStatus;
+        lifecycle.abortController.abort();
+      };
+      process.on(signal, handler);
+      return [signal, handler] as const;
+    },
+  );
 
   try {
     await options.operations[command]({ lifecycle, paths: options.paths });
@@ -56,7 +62,9 @@ export async function executeCli(options: CliOptions): Promise<number> {
     } else {
       status = 1;
       const message =
-        error instanceof OperationalError ? error.message : "unexpected internal failure";
+        error instanceof OperationalError
+          ? error.message
+          : "unexpected internal failure";
       process.stderr.write(`cpa-stack: ${message}\n`);
     }
   } finally {

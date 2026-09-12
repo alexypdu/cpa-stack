@@ -41,7 +41,10 @@ export function runCommand(
     child.once("error", reject);
     child.once("close", (code, signal) => {
       resolve({
-        status: code ?? signalExitStatuses[signal as keyof typeof signalExitStatuses] ?? 1,
+        status:
+          code ??
+          signalExitStatuses[signal as keyof typeof signalExitStatuses] ??
+          1,
         stdout,
         stderr,
       });

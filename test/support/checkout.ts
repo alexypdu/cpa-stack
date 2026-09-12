@@ -1,13 +1,21 @@
-import { chmod, cp, mkdtemp, mkdir, realpath, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
 import {
   spawn,
   spawnSync,
   type ChildProcessWithoutNullStreams,
   type SpawnSyncReturns,
 } from "node:child_process";
+import {
+  chmod,
+  cp,
+  mkdtemp,
+  mkdir,
+  realpath,
+  rm,
+  writeFile,
+} from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 const sourceRoot = fileURLToPath(new URL("../..", import.meta.url));
 
@@ -88,11 +96,15 @@ export async function createTestCheckout(): Promise<TestCheckout> {
     root,
     outsideRoot,
     runCli(args) {
-      return spawnSync(process.execPath, [join(root, "bin/cpa-stack.ts"), ...args], {
-        cwd: outsideRoot,
-        encoding: "utf8",
-        env: { ...process.env },
-      });
+      return spawnSync(
+        process.execPath,
+        [join(root, "bin/cpa-stack.ts"), ...args],
+        {
+          cwd: outsideRoot,
+          encoding: "utf8",
+          env: { ...process.env },
+        },
+      );
     },
     runLegacyCli(args, env = {}) {
       return spawnSync(join(root, "cpa-stack"), args, {

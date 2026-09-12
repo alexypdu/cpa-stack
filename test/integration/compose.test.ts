@@ -7,7 +7,9 @@ import test from "node:test";
 import { createTestCheckout } from "../support/checkout.ts";
 
 test("Compose resolves a synthetic stack override without starting containers", async (t) => {
-  const version = spawnSync("docker", ["compose", "version"], { encoding: "utf8" });
+  const version = spawnSync("docker", ["compose", "version"], {
+    encoding: "utf8",
+  });
   assert.equal(
     version.status,
     0,

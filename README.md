@@ -82,3 +82,23 @@ Release synchronization is optional during initial setup. Run `generate` after c
    ```
 
 4. Open <http://127.0.0.1:8318> and sign in with `CPA_KEEPER_LOGIN_PASSWORD`.
+
+## Development checks
+
+Use Node.js 24.12.0 or later and pnpm 12. The `packageManager` field pins pnpm to version 12.4.1. With pnpm installed, run `pnpm install --frozen-lockfile` to install development dependencies and the Husky Git hooks. Use `pnpm-lock.yaml` as the dependency lockfile; do not generate an npm lockfile.
+
+| Command | Purpose |
+| --- | --- |
+| `pnpm run check` | Check formatting, lint, type-check, run unit tests, and run the Compose integration test. Stops at the first failure. |
+| `pnpm run lint:fix` | Apply safe Oxlint fixes to code in `bin`, `src`, and `test`. |
+| `pnpm run format` | Format TypeScript files in `bin`, `src`, and `test`, plus the root `package.json` and `tsconfig.json`. |
+
+Oxfmt sorts imports and `package.json` keys. It uses semicolons, double quotes, and trailing commas wherever the syntax permits them. Its quote selection can use single quotes to avoid extra escaping.
+
+The pre-commit hook runs lint-staged. It applies safe lint fixes, then formatting, to staged TypeScript files in those directories. It also formats the two selected JSON files. Upstream YAML, generated configuration, Markdown, and JSON compatibility records are outside the formatting scope.
+
+The pre-push hook rejects staged or unstaged tracked changes. Commit or stash them before pushing. It then runs `pnpm run check` without applying fixes. Untracked files do not block the guard. Checks use the current working tree, not arbitrary refs supplied to `git push`; push the checked-out branch after committing all intended files.
+
+The full suite needs Git, `/bin/sh`, and the Docker CLI with Docker Compose. The Compose test validates synthetic configuration only: it does not require a running Docker daemon, start containers, or pull images. Unit tests use controlled external commands and do not need a real `yq` installation.
+
+These are local checks, not remote CI enforcement. Hooks can be bypassed, and GitHub web edits do not run them. `pnpm run check` is also available for manual validation without hooks.
