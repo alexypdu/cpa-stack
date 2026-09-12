@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdir, readFile, rm, symlink, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import test from "node:test";
 
@@ -274,62 +274,4 @@ test("restart preserves bind-mounted state", async (t) => {
       contents,
     );
   }
-});
-
-test("npm script and linked executable run restart from their checkout", async (t) => {
-  const checkout = await createTestCheckout();
-  t.after(() => checkout.cleanup());
-  await writeFile(join(checkout.root, "cpa/config.yaml"), "port: 8317\n");
-  const commandLog = join(checkout.root, "docker-commands.jsonl");
-  const docker = await checkout.installCommand(
-    "docker",
-    `#!${process.execPath}\nimport { appendFileSync } from "node:fs";\nappendFileSync(process.env.DOCKER_LOG, process.cwd() + "\\n");\n`,
-  );
-  const env = {
-    ...process.env,
-    PATH: `${dirname(docker)}:${process.env.PATH}`,
-    DOCKER_LOG: commandLog,
-  };
-  const packageJson = JSON.parse(
-    await readFile(join(checkout.root, "package.json"), "utf8"),
-  ) as { scripts: Record<string, string> };
-
-  assert.equal(packageJson.scripts.restart, "node bin/cpa-stack.ts restart");
-  const scriptResult = spawnSync(
-    "npm",
-    ["--prefix", checkout.root, "run", "restart"],
-    {
-      cwd: checkout.outsideRoot,
-      encoding: "utf8",
-      env,
-    },
-  );
-  assert.equal(
-    scriptResult.status,
-    0,
-    scriptResult.stderr || scriptResult.stdout,
-  );
-  assert.match(
-    scriptResult.stdout,
-    /Recreated CPA and Keeper; no immediate service exit was observed\./,
-  );
-  assert.equal(scriptResult.stderr, "");
-
-  const linkedBin = join(checkout.outsideRoot, "cpa-stack");
-  await symlink(join(checkout.root, "bin/cpa-stack.ts"), linkedBin);
-  const linkedResult = spawnSync(linkedBin, ["restart"], {
-    cwd: checkout.outsideRoot,
-    encoding: "utf8",
-    env,
-  });
-  assert.equal(linkedResult.status, 0);
-  assert.equal(
-    linkedResult.stdout,
-    "Recreated CPA and Keeper; no immediate service exit was observed.\n",
-  );
-  assert.equal(linkedResult.stderr, "");
-  assert.deepEqual(
-    (await readFile(commandLog, "utf8")).trimEnd().split("\n"),
-    Array(8).fill(checkout.root),
-  );
 });

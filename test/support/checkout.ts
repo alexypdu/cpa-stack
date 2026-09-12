@@ -70,10 +70,6 @@ export interface TestCheckout {
   outsideRoot: string;
   runCli(args: string[], env?: NodeJS.ProcessEnv): SpawnSyncReturns<string>;
   runGit(args: string[]): SpawnSyncReturns<string>;
-  runLegacyCli(
-    args: string[],
-    env?: NodeJS.ProcessEnv,
-  ): SpawnSyncReturns<string>;
   runFixtureCli(
     args: string[],
     env?: NodeJS.ProcessEnv,
@@ -83,7 +79,6 @@ export interface TestCheckout {
     env?: NodeJS.ProcessEnv,
   ): ChildProcessWithoutNullStreams;
   installCommand(name: string, source: string): Promise<string>;
-  replaceLegacyCli(source: string): Promise<void>;
   cleanup(): Promise<void>;
 }
 
@@ -101,7 +96,6 @@ export async function createTestCheckout(): Promise<TestCheckout> {
     "bin",
     "src",
     "test/fixtures",
-    "cpa-stack",
     "package.json",
     ".gitignore",
   ]) {
@@ -169,13 +163,6 @@ export async function createTestCheckout(): Promise<TestCheckout> {
         env: isolatedGitEnvironment(),
       });
     },
-    runLegacyCli(args, env = {}) {
-      return spawnSync(join(root, "cpa-stack"), args, {
-        cwd: outsideRoot,
-        encoding: "utf8",
-        env: isolatedGitEnvironment(env),
-      });
-    },
     runFixtureCli(args, env = {}) {
       return spawnSync(
         process.execPath,
@@ -206,11 +193,6 @@ export async function createTestCheckout(): Promise<TestCheckout> {
       await writeFile(path, source);
       await chmod(path, 0o755);
       return path;
-    },
-    async replaceLegacyCli(source) {
-      const path = join(root, "cpa-stack");
-      await writeFile(path, source);
-      await chmod(path, 0o755);
     },
     async cleanup() {
       await rm(workspace, { recursive: true, force: true });
