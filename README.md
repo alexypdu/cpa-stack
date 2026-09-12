@@ -17,11 +17,14 @@ For first-time pnpm setup, run `pnpm setup` and open a new shell.
 
 Run the setup commands from the repository root.
 
-1. Install CPA Stack:
+1. Install dependencies and register the `cpa-stack` command:
 
    ```sh
    pnpm i
+   pnpm register
    ```
+
+   Run `pnpm register` once per clone location. The command links to this clone, so source updates do not need registration again. If you move the clone, run `pnpm register` from its new location.
 
 2. Create the local inputs and state directories.
 

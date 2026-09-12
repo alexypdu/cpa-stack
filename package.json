@@ -18,7 +18,7 @@
     "format": "oxfmt --write 'bin/**/*.ts' 'src/**/*.ts' 'test/**/*.ts' package.json tsconfig.json",
     "format:check": "oxfmt --check 'bin/**/*.ts' 'src/**/*.ts' 'test/**/*.ts' package.json tsconfig.json",
     "check": "pnpm run format:check && pnpm run lint && pnpm run typecheck && pnpm test && pnpm run test:compose",
-    "postinstall": "pnpm add -g . --offline --ignore-scripts",
+    "register": "pnpm add -g . --offline --ignore-scripts",
     "prepare": "husky"
   },
   "dependencies": {
