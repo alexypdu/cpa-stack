@@ -39,8 +39,14 @@ const gitLocalEnvironmentVariables = [
   "GIT_WORK_TREE",
 ];
 
-function isolatedGitEnvironment(): NodeJS.ProcessEnv {
-  const environment: NodeJS.ProcessEnv = { ...process.env, HUSKY: "0" };
+export function isolatedGitEnvironment(
+  overrides: NodeJS.ProcessEnv = {},
+): NodeJS.ProcessEnv {
+  const environment: NodeJS.ProcessEnv = {
+    ...process.env,
+    ...overrides,
+    HUSKY: "0",
+  };
   for (const name of gitLocalEnvironmentVariables) {
     delete environment[name];
   }

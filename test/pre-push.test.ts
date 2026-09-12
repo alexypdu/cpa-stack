@@ -6,6 +6,8 @@ import { join } from "node:path";
 import test, { type TestContext } from "node:test";
 import { fileURLToPath } from "node:url";
 
+import { isolatedGitEnvironment } from "./support/checkout.ts";
+
 const hook = fileURLToPath(new URL("../.husky/pre-push", import.meta.url));
 
 async function createCheckout(t: TestContext) {
@@ -16,7 +18,11 @@ async function createCheckout(t: TestContext) {
     const result = spawnSync(
       "git",
       ["-c", "core.hooksPath=/dev/null", "-c", "commit.gpgsign=false", ...args],
-      { cwd: root, encoding: "utf8" },
+      {
+        cwd: root,
+        encoding: "utf8",
+        env: isolatedGitEnvironment(),
+      },
     );
     assert.equal(result.status, 0, result.stderr);
   }
@@ -45,7 +51,7 @@ async function createCheckout(t: TestContext) {
       return spawnSync("sh", [hook], {
         cwd: root,
         encoding: "utf8",
-        env: { ...process.env, CHECK_EXIT: checkExit },
+        env: isolatedGitEnvironment({ CHECK_EXIT: checkExit }),
       });
     },
   };
