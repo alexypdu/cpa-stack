@@ -7,7 +7,7 @@ CPA sends client requests to an upstream provider. Keeper reads the usage feed f
 ## Prerequisites
 
 - macOS with Node.js 24 LTS, version 24.12.0 or later.
-- pnpm 12.4.1 with its global executable directory on `PATH`.
+- pnpm 12.4.1.
 - Docker with Compose and a running Docker environment, such as [Colima](https://github.com/abiosoft/colima).
 - Git and curl.
 
@@ -20,20 +20,15 @@ mise install
 
 Docker with Compose, Git, and curl remain system prerequisites.
 
-For first-time pnpm setup, run `pnpm setup` and open a new shell.
-
 ## Quick start
 
 Run the setup commands from the repository root.
 
-1. Install dependencies and register the `cpa-stack` command:
+1. Install dependencies:
 
    ```sh
    pnpm i
-   pnpm register
    ```
-
-   Run `pnpm register` once per clone location. The command links to this clone, so source updates do not need registration again. If you move the clone, run `pnpm register` from its new location.
 
 2. Create the local inputs and state directories.
 
@@ -58,26 +53,26 @@ Run the setup commands from the repository root.
 4. Generate the effective config:
 
    ```sh
-   cpa-stack generate
+   pnpm generate
    ```
 
 5. Start CPA and Keeper:
 
    ```sh
-   cpa-stack restart
+   pnpm restart
    ```
 
 Open [Keeper](http://127.0.0.1:8318). Sign in with the value of `CPA_KEEPER_LOGIN_PASSWORD`.
 
 ## Commands
 
-The `cpa-stack` command uses the files in the installed clone, regardless of the current directory.
+Run these commands from the repository root.
 
 | Command | Operation | Result |
 | --- | --- | --- |
-| `cpa-stack sync` | Release sync | Update image pins for available stable releases and the matching upstream baseline. |
-| `cpa-stack generate` | Config generation | Apply the stack override to the upstream baseline. Write the effective config. |
-| `cpa-stack restart` | Stack restart | Recreate CPA and Keeper with the current image pins and effective config. |
+| `pnpm sync` | Release sync | Update image pins for available stable releases and the matching upstream baseline. |
+| `pnpm generate` | Config generation | Apply the stack override to the upstream baseline. Write the effective config. |
+| `pnpm restart` | Stack restart | Recreate CPA and Keeper with the current image pins and effective config. |
 
 Run each operation explicitly. Release sync is optional for the first start.
 
