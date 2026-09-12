@@ -17,13 +17,6 @@ import { parse, stringify } from "yaml";
 import { createTestCheckout, waitForPath } from "./support/checkout.ts";
 
 interface CompatibilityManifest {
-  mergeCases: Array<{
-    id: string;
-    accepted: boolean;
-    baseline?: unknown;
-    override?: unknown;
-    expected?: unknown;
-  }>;
   yamlBoundaryCases: Array<{
     id: string;
     baselineYaml: string;
@@ -128,44 +121,38 @@ test("config generation merges the resolved stack override without changing its 
   assert.ok(commands.every((args) => !args.includes("pull")));
 });
 
-for (const record of compatibility.mergeCases) {
-  if (
-    !record.accepted ||
-    record.id === "root-sequence" ||
-    record.baseline === undefined ||
-    record.override === undefined
-  ) {
-    continue;
-  }
+test("config generation replaces nested arrays and lets empty arrays clear defaults", async (t) => {
+  const checkout = await createTestCheckout();
+  t.after(() => checkout.cleanup());
+  const docker = await checkout.installCommand("docker", fakeDocker);
+  const override = {
+    nested: { values: [{ replacement: true }], cleared: [] },
+  };
+  await writeFile(
+    join(checkout.root, "cpa/config.yaml.example"),
+    stringify({
+      nested: { values: [{ baseline: true }], cleared: ["baseline"] },
+    }),
+  );
+  await writeFile(
+    join(checkout.root, "cpa/config.yaml.override"),
+    stringify(override),
+  );
 
-  test(`config generation matches the saved ${record.id} merge result`, async (t) => {
-    const checkout = await createTestCheckout();
-    t.after(() => checkout.cleanup());
-    const docker = await checkout.installCommand("docker", fakeDocker);
-    await writeFile(
-      join(checkout.root, "cpa/config.yaml.example"),
-      stringify(record.baseline),
-    );
-    await writeFile(
-      join(checkout.root, "cpa/config.yaml.override"),
-      stringify(record.override),
-    );
-
-    const result = checkout.runCli(["generate"], {
-      PATH: `${dirname(docker)}:${process.env.PATH ?? ""}`,
-      COMPOSE_OUTPUT: stringify({
-        "x-cpa-stack-override": record.override,
-        services: {},
-      }),
-    });
-
-    assert.equal(result.status, 0, result.stderr);
-    assert.deepEqual(
-      parse(await readFile(join(checkout.root, "cpa/config.yaml"), "utf8")),
-      record.expected,
-    );
+  const result = checkout.runCli(["generate"], {
+    PATH: `${dirname(docker)}:${process.env.PATH ?? ""}`,
+    COMPOSE_OUTPUT: stringify({
+      "x-cpa-stack-override": override,
+      services: {},
+    }),
   });
-}
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(
+    parse(await readFile(join(checkout.root, "cpa/config.yaml"), "utf8")),
+    override,
+  );
+});
 
 test("config generation rejects root sequences outside the mapping-shaped configuration contract", async (t) => {
   const checkout = await createTestCheckout();

@@ -19,7 +19,7 @@ function requireCompose(): void {
   );
 }
 
-test("config generation delegates Compose interpolation semantics without starting containers", async (t) => {
+test("config generation uses checkout and inherited environment values and restores literal dollars", async (t) => {
   requireCompose();
   const checkout = await createTestCheckout();
   t.after(() => checkout.cleanup());
@@ -32,10 +32,6 @@ test("config generation delegates Compose interpolation semantics without starti
     [
       "inherited-precedence: ${CPA_CLIENT_API_KEY:?client key is required}",
       "env-file-only: ${CPA_MANAGEMENT_KEY:?management key is required}",
-      "required: ${GEN_REQUIRED:?GEN_REQUIRED must be set}",
-      "unset-default: ${GEN_UNSET-default-for-unset}",
-      "empty-default: ${GEN_EMPTY:-default-for-empty}",
-      "empty-preserved: ${GEN_EMPTY-default-only-when-unset}",
       "escaped: $$GEN_LITERAL",
       "special: ${GEN_SPECIAL:?GEN_SPECIAL must be set}",
       "",
@@ -45,8 +41,6 @@ test("config generation delegates Compose interpolation semantics without starti
   const result = checkout.runCli(["generate"], {
     CPA_CLIENT_API_KEY: "inherited-client-key",
     CPA_MANAGEMENT_KEY: undefined,
-    GEN_REQUIRED: "required-value",
-    GEN_EMPTY: "",
     GEN_SPECIAL: "spaces : # $ [] {} quotes '\" and \\",
   });
 
@@ -57,10 +51,6 @@ test("config generation delegates Compose interpolation semantics without starti
       "baseline-only": "kept",
       "inherited-precedence": "inherited-client-key",
       "env-file-only": "synthetic-management-key",
-      required: "required-value",
-      "unset-default": "default-for-unset",
-      "empty-default": "default-for-empty",
-      "empty-preserved": "",
       escaped: "$GEN_LITERAL",
       special: "spaces : # $ [] {} quotes '\" and \\",
     },

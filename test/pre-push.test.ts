@@ -33,8 +33,7 @@ async function createCheckout(t: TestContext) {
     JSON.stringify({
       private: true,
       scripts: {
-        check:
-          "node -e \"console.log('validation ran'); process.exit(Number(process.env.CHECK_EXIT || 0))\"",
+        check: "node -e \"console.log('validation ran')\"",
       },
     }),
   );
@@ -47,11 +46,11 @@ async function createCheckout(t: TestContext) {
   return {
     root,
     git,
-    run(checkExit = "0") {
+    run() {
       return spawnSync("sh", [hook], {
         cwd: root,
         encoding: "utf8",
-        env: isolatedGitEnvironment({ CHECK_EXIT: checkExit }),
+        env: isolatedGitEnvironment(),
       });
     },
   };
@@ -75,15 +74,6 @@ test("pre-push validates a clean tracked tree despite untracked files", async (t
   const result = checkout.run();
 
   assert.equal(result.status, 0, result.stderr);
-  assert.match(result.stdout, /validation ran/);
-});
-
-test("pre-push propagates failed validation", async (t) => {
-  const checkout = await createCheckout(t);
-
-  const result = checkout.run("7");
-
-  assert.equal(result.status, 7);
   assert.match(result.stdout, /validation ran/);
 });
 

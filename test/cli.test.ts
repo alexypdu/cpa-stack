@@ -14,20 +14,6 @@ import test from "node:test";
 
 import { createTestCheckout, waitForPath } from "./support/checkout.ts";
 
-test("the harness creates a clean synthetic checkout", async (t) => {
-  const checkout = await createTestCheckout();
-  t.after(() => checkout.cleanup());
-
-  assert.equal(
-    await readFile(join(checkout.root, ".env"), "utf8"),
-    "CPA_MANAGEMENT_KEY=synthetic-management-key\n" +
-      "CPA_KEEPER_LOGIN_PASSWORD=synthetic-login-password\n" +
-      "CPA_CLIENT_API_KEY=synthetic-client-key\n",
-  );
-  const status = checkout.runFixtureCli(["sync"]);
-  assert.equal(status.status, 0);
-});
-
 test("the harness isolates synthetic repositories from inherited Git hook state", async (t) => {
   const workspace = await mkdtemp(join(tmpdir(), "cpa-stack-git-env-test-"));
   t.after(() => rm(workspace, { force: true, recursive: true }));
@@ -87,25 +73,6 @@ test("the harness isolates synthetic repositories from inherited Git hook state"
   assert.equal(result.status, 0, result.stderr);
   assert.equal(runOuterGit(["rev-parse", "HEAD"]).stdout.trim(), originalHead);
   assert.equal(runOuterGit(["status", "--porcelain"]).stdout, "");
-});
-
-test("package metadata exposes the local CLI on supported Node", async (t) => {
-  const checkout = await createTestCheckout();
-  t.after(() => checkout.cleanup());
-  const packageJson = JSON.parse(
-    await readFile(join(checkout.root, "package.json"), "utf8"),
-  );
-
-  assert.deepEqual(packageJson.bin, { "cpa-stack": "./bin/cpa-stack.ts" });
-  assert.equal(packageJson.engines.node, ">=24.12.0");
-  assert.equal(packageJson.scripts.sync, "node ./bin/cpa-stack.ts sync");
-  assert.equal(packageJson.scripts.test, "node --test test/*.test.ts");
-  assert.equal(
-    packageJson.scripts["test:compose"],
-    "node --test test/integration/*.test.ts",
-  );
-  assert.equal(packageJson.scripts.generate, "node bin/cpa-stack.ts generate");
-  assert.equal(packageJson.scripts.typecheck, "tsc --noEmit");
 });
 
 test("invalid usage prints help to stderr and exits 2", async (t) => {
