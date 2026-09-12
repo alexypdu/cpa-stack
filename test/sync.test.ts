@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { existsSync } from "node:fs";
-import { chmod, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { readFile, rm, stat, writeFile } from "node:fs/promises";
 import { basename, delimiter, join } from "node:path";
 import test from "node:test";
 
@@ -396,6 +396,47 @@ test("sync permits unrelated local work", async (t) => {
   );
 });
 
+test("sync rejects a corrupted staged Compose file before replacement", async (t) => {
+  const fixture = await createSyncFixture();
+  t.after(() => fixture.checkout.cleanup());
+  const preload = join(fixture.checkout.root, "corrupt-staged-read.cjs");
+  await writeFile(
+    preload,
+    `const fs = require("node:fs");
+const { syncBuiltinESMExports } = require("node:module");
+const originalReadFile = fs.promises.readFile;
+fs.promises.readFile = async function (path, ...args) {
+  if (String(path).includes(".cpa-stack-sync-") && String(path).endsWith("docker-compose.yml")) {
+    return "services: [\\n";
+  }
+  return originalReadFile.call(this, path, ...args);
+};
+syncBuiltinESMExports();
+`,
+  );
+  fixture.env.NODE_OPTIONS = `--require=${preload}`;
+  const composePath = join(fixture.checkout.root, "docker-compose.yml");
+  const baselinePath = join(fixture.checkout.root, "cpa/config.yaml.example");
+  const originalCompose = await readFile(composePath);
+  const originalBaseline = await readFile(baselinePath);
+
+  const result = fixture.checkout.runCli(["sync"], fixture.env);
+
+  assert.equal(result.status, 1);
+  assert.equal(
+    result.stderr,
+    "cpa-stack: docker-compose.yml is not valid YAML\n",
+  );
+  assert.deepEqual(await readFile(composePath), originalCompose);
+  assert.deepEqual(await readFile(baselinePath), originalBaseline);
+  const untracked = fixture.checkout.runGit([
+    "ls-files",
+    "--others",
+    "--exclude-standard",
+  ]);
+  assert.doesNotMatch(untracked.stdout, /cpa-stack-(?:sync|stage|rollback)/);
+});
+
 test("sync repeats dirty-file protection immediately before replacement", async (t) => {
   const fixture = await createSyncFixture();
   t.after(() => fixture.checkout.cleanup());
@@ -734,7 +775,7 @@ test("sync does not rewrite unchanged tracked artifacts", async (t) => {
   assert.equal(baselineAfter.ino, baselineBefore.ino);
 });
 
-test("sync leaves artifacts untouched when rollback preparation fails", async (t) => {
+test("sync restores both artifacts when the later replacement fails", async (t) => {
   const fixture = await createSyncFixture();
   t.after(() => fixture.checkout.cleanup());
   const realGit = (process.env.PATH ?? "")
@@ -747,7 +788,7 @@ test("sync leaves artifacts untouched when rollback preparation fails", async (t
   await fixture.checkout.installCommand(
     "git",
     `#!/usr/bin/env node
-import { chmodSync, existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 const count = existsSync(process.env.SYNC_GIT_COUNTER)
   ? Number(readFileSync(process.env.SYNC_GIT_COUNTER, "utf8")) + 1
@@ -758,7 +799,11 @@ const result = spawnSync(process.env.SYNC_REAL_GIT, process.argv.slice(2), {
   encoding: "utf8",
 });
 if (count === 8 && result.status === 0) {
-  chmodSync(process.env.SYNC_BREAK_BASELINE, 0);
+  const stage = readdirSync(process.env.SYNC_BREAK_BASELINE)
+    .find((name) => name.startsWith(".cpa-stack-stage-"));
+  if (stage !== undefined) {
+    rmSync(process.env.SYNC_BREAK_BASELINE + "/" + stage + "/config.yaml.example");
+  }
 }
 process.stdout.write(result.stdout ?? "");
 process.stderr.write(result.stderr ?? "");
@@ -767,18 +812,17 @@ process.exit(result.status ?? 1);
   );
   fixture.env.SYNC_GIT_COUNTER = counter;
   fixture.env.SYNC_REAL_GIT = realGit;
-  fixture.env.SYNC_BREAK_BASELINE = baselinePath;
+  fixture.env.SYNC_BREAK_BASELINE = join(fixture.checkout.root, "cpa");
   const composePath = join(fixture.checkout.root, "docker-compose.yml");
   const originalCompose = await readFile(composePath);
   const originalBaseline = await readFile(baselinePath);
 
   const result = fixture.checkout.runCli(["sync"], fixture.env);
-  await chmod(baselinePath, 0o644);
 
   assert.equal(result.status, 1);
   assert.equal(
     result.stderr,
-    "cpa-stack: could not copy the upstream baseline for rollback\n",
+    "cpa-stack: could not replace the upstream baseline\n",
   );
   assert.deepEqual(await readFile(composePath), originalCompose);
   assert.deepEqual(await readFile(baselinePath), originalBaseline);

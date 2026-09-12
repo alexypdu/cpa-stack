@@ -82,7 +82,7 @@ async function requireExecutable(name: string, message: string): Promise<void> {
   fail(message);
 }
 
-async function command(
+async function runSyncCommand(
   executable: string,
   args: string[],
   root: string,
@@ -108,13 +108,13 @@ async function ensureCleanDestinations(
 ): Promise<void> {
   const conflicts: string[] = [];
   for (const path of ["docker-compose.yml", "cpa/config.yaml.example"]) {
-    const worktree = await command(
+    const worktree = await runSyncCommand(
       "git",
       ["diff", "--quiet", "--", path],
       root,
       lifecycle,
     );
-    const index = await command(
+    const index = await runSyncCommand(
       "git",
       ["diff", "--cached", "--quiet", "--", path],
       root,
@@ -177,7 +177,7 @@ async function download(
   root: string,
   lifecycle: Lifecycle,
 ): Promise<void> {
-  const result = await command(
+  const result = await runSyncCommand(
     "curl",
     ["-fsSL", ...githubHeaders, "-o", destination, url],
     root,
@@ -230,7 +230,7 @@ async function selectRelease(
   lifecycle: Lifecycle,
 ): Promise<SelectedRelease> {
   const image = `${repository}:${tag}`;
-  const result = await command(
+  const result = await runSyncCommand(
     "docker",
     ["manifest", "inspect", image],
     root,
@@ -267,14 +267,7 @@ function updateComposeImages(
   }
   cpaNode.value = cpaImage;
   keeperNode.value = keeperImage;
-  const stagedSource = current.composeDocument.toString();
-  const staged = parseCurrentImages(stagedSource);
-  if (staged.cpaImage !== cpaImage || staged.keeperImage !== keeperImage) {
-    fail(
-      "docker-compose.yml has an unexpected image declaration after staging",
-    );
-  }
-  return stagedSource;
+  return current.composeDocument.toString();
 }
 
 async function prepareTrackedArtifactReplacement(
@@ -409,6 +402,15 @@ export const syncOperation: Operation = async ({ lifecycle, paths }) => {
       { mode: 0o644 },
     );
     await chmod(stagedCompose, 0o644);
+    const staged = parseCurrentImages(await readFile(stagedCompose, "utf8"));
+    if (
+      staged.cpaImage !== expectedCpaImage ||
+      staged.keeperImage !== expectedKeeperImage
+    ) {
+      fail(
+        "docker-compose.yml has an unexpected image declaration after staging",
+      );
+    }
   }
   if (baselineChanged) {
     const baselineStageDirectory = await mkdtemp(
@@ -419,8 +421,6 @@ export const syncOperation: Operation = async ({ lifecycle, paths }) => {
     await writeFile(stagedBaseline, selectedBaseline, { mode: 0o644 });
     await chmod(stagedBaseline, 0o644);
   }
-
-  await ensureCleanDestinations(paths.root, lifecycle);
 
   const replacements: Array<{
     disarm: () => void;
@@ -446,6 +446,8 @@ export const syncOperation: Operation = async ({ lifecycle, paths }) => {
       ),
     );
   }
+
+  await ensureCleanDestinations(paths.root, lifecycle);
   for (const replacement of replacements) {
     await replacement.replace();
   }
