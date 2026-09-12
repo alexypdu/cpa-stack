@@ -21,6 +21,31 @@ import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 
 const sourceRoot = fileURLToPath(new URL("../..", import.meta.url));
+const gitLocalEnvironmentVariables = [
+  "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+  "GIT_COMMON_DIR",
+  "GIT_CONFIG",
+  "GIT_CONFIG_COUNT",
+  "GIT_CONFIG_PARAMETERS",
+  "GIT_DIR",
+  "GIT_GRAFT_FILE",
+  "GIT_IMPLICIT_WORK_TREE",
+  "GIT_INDEX_FILE",
+  "GIT_NO_REPLACE_OBJECTS",
+  "GIT_OBJECT_DIRECTORY",
+  "GIT_PREFIX",
+  "GIT_REPLACE_REF_BASE",
+  "GIT_SHALLOW_FILE",
+  "GIT_WORK_TREE",
+];
+
+function isolatedGitEnvironment(): NodeJS.ProcessEnv {
+  const environment: NodeJS.ProcessEnv = { ...process.env, HUSKY: "0" };
+  for (const name of gitLocalEnvironmentVariables) {
+    delete environment[name];
+  }
+  return environment;
+}
 
 export async function waitForPath(path: string): Promise<void> {
   for (let attempt = 0; attempt < 200; attempt += 1) {
@@ -106,7 +131,11 @@ export async function createTestCheckout(): Promise<TestCheckout> {
     ["add", "."],
     ["commit", "-qm", "test: initialize synthetic checkout"],
   ]) {
-    const result = spawnSync("git", args, { cwd: root, encoding: "utf8" });
+    const result = spawnSync("git", args, {
+      cwd: root,
+      encoding: "utf8",
+      env: isolatedGitEnvironment(),
+    });
     if (result.status !== 0) {
       throw new Error(`could not initialize test checkout: ${result.stderr}`);
     }
