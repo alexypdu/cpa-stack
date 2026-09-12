@@ -1,0 +1,61 @@
+{
+  "reference": {
+    "shellCommit": "9d85ad5",
+    "source": "synthetic command-level characterization of ./cpa-stack",
+    "secrets": "synthetic only"
+  },
+  "records": [
+    {
+      "id": "manifest-before-adoption",
+      "command": "sync",
+      "given": "a newer stable release is returned",
+      "observedCommands": ["docker manifest inspect <selected-image>"],
+      "expected": "the image pin is adopted only after manifest inspection succeeds"
+    },
+    {
+      "id": "independent-service-availability",
+      "command": "sync",
+      "given": "one selected image is available and the other is unavailable",
+      "expected": "the available service advances and the unavailable service keeps its current pin"
+    },
+    {
+      "id": "baseline-byte-regeneration-guidance",
+      "command": "sync",
+      "given": "the selected CPA pin is unchanged",
+      "expected": "regeneration guidance is printed only when downloaded baseline bytes differ"
+    },
+    {
+      "id": "rotating-effective-config-backup",
+      "command": "generate",
+      "given": "an effective config already exists",
+      "expected": "the prior effective-config bytes replace cpa/config.yaml.backup before the new effective config is installed"
+    },
+    {
+      "id": "immediate-exit-only-restart-check",
+      "command": "restart",
+      "given": "Compose recreation succeeds",
+      "observedCommands": ["docker compose ... ps --all --status exited --services cli-proxy-api cpa-usage-keeper"],
+      "expected": "any listed service fails the command; an empty list reports only that no immediate exit was observed"
+    },
+    {
+      "id": "manifest-failure-is-unavailable",
+      "command": "sync",
+      "given": "manifest inspection exits nonzero for any reason",
+      "expected": "the selected service keeps its current pin without classifying the failure"
+    },
+    {
+      "id": "invalid-cpa-baseline-aborts-sync",
+      "command": "sync",
+      "given": "the selected CPA image exists but its exact-tag baseline is empty or not a YAML mapping",
+      "expected": "the whole command fails before adopting an otherwise available Keeper update"
+    },
+    {
+      "id": "unavailable-report-clobbers-selected-tag",
+      "command": "sync",
+      "given": "Keeper v2.0.0 is selected, manifest inspection fails, and v1.0.0 is retained",
+      "observedCommands": ["docker manifest inspect ghcr.io/willxup/cpa-usage-keeper:v2.0.0"],
+      "stdout": "Keeper: selected v1.0.0, but its image is unavailable; kept v1.0.0.\n",
+      "expected": "preserve until explicit approval is given to fix the global shell-variable clobber"
+    }
+  ]
+}

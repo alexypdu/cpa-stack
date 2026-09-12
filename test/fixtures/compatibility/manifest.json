@@ -1,0 +1,129 @@
+{
+  "reference": {
+    "shellCommit": "9d85ad5",
+    "mergeCommand": "yq eval-all 'select(fileIndex == 0) * select(fileIndex == 1)' baseline.yaml override.yaml",
+    "yq": "mikefarah/yq v4.53.6",
+    "capturedAt": "2026-09-11",
+    "comparison": "semantic YAML unless outputBytes is present"
+  },
+  "mergeCases": [
+    {
+      "id": "recursive-mappings",
+      "accepted": true,
+      "baseline": { "mapping": { "keep": "baseline", "replace": "baseline" } },
+      "override": { "mapping": { "replace": "override", "add": "override" } },
+      "expected": { "mapping": { "keep": "baseline", "replace": "override", "add": "override" } }
+    },
+    {
+      "id": "baseline-only-values",
+      "accepted": true,
+      "baseline": { "kept": "baseline", "changed": "baseline" },
+      "override": { "changed": "override" },
+      "expected": { "kept": "baseline", "changed": "override" }
+    },
+    {
+      "id": "scalar-arrays-replace",
+      "accepted": true,
+      "baseline": { "values": ["baseline-a", "baseline-b"] },
+      "override": { "values": ["override"] },
+      "expected": { "values": ["override"] }
+    },
+    {
+      "id": "mapping-arrays-replace",
+      "accepted": true,
+      "baseline": { "values": [{ "baseline": true }] },
+      "override": { "values": [{ "override": true }] },
+      "expected": { "values": [{ "override": true }] }
+    },
+    {
+      "id": "nested-arrays-replace",
+      "accepted": true,
+      "baseline": { "nested": { "values": ["baseline"] } },
+      "override": { "nested": { "values": ["override"] } },
+      "expected": { "nested": { "values": ["override"] } }
+    },
+    {
+      "id": "empty-array-clears",
+      "accepted": true,
+      "baseline": { "values": ["baseline"] },
+      "override": { "values": [] },
+      "expected": { "values": [] }
+    },
+    {
+      "id": "null-overrides-scalar",
+      "accepted": true,
+      "baseline": { "value": "baseline" },
+      "override": { "value": null },
+      "expected": { "value": null }
+    },
+    {
+      "id": "mapping-to-scalar",
+      "accepted": true,
+      "baseline": { "value": { "nested": "baseline" } },
+      "override": { "value": "override" },
+      "expected": { "value": "override" }
+    },
+    {
+      "id": "scalar-to-mapping",
+      "accepted": true,
+      "baseline": { "value": "baseline" },
+      "override": { "value": { "nested": "override" } },
+      "expected": { "value": { "nested": "override" } }
+    },
+    {
+      "id": "root-sequence",
+      "accepted": true,
+      "baseline": ["baseline"],
+      "override": ["override"],
+      "expected": ["override"]
+    },
+    {
+      "id": "root-scalar",
+      "accepted": false,
+      "baselineYaml": "baseline\n",
+      "overrideYaml": "override\n",
+      "status": 1,
+      "diagnostic": "Error: cannot multiply !!str with !!str"
+    }
+  ],
+  "yamlBoundaryCases": [
+    {
+      "id": "aliases",
+      "accepted": true,
+      "baselineYaml": "defaults: &defaults\n  one: baseline\nvalue: *defaults\n",
+      "overrideYaml": "value:\n  two: override\n",
+      "status": 0,
+      "outputJsonText": "{\n  \"defaults\": {\n    \"one\": \"baseline\"\n  },\n  \"value\": {\n    \"two\": \"override\"\n  }\n}\n"
+    },
+    {
+      "id": "duplicate-keys",
+      "accepted": true,
+      "baselineYaml": "value: first\nvalue: second\n",
+      "overrideYaml": "other: override\n",
+      "status": 0,
+      "outputJsonText": "{\n  \"value\": \"first\",\n  \"value\": \"second\",\n  \"other\": \"override\"\n}\n",
+      "note": "yq preserves both duplicate mapping entries in emitted output. This cannot be represented as a JavaScript object without loss.",
+      "compatibilityConcern": true
+    },
+    {
+      "id": "custom-tags",
+      "accepted": true,
+      "baselineYaml": "value: !custom baseline\n",
+      "overrideYaml": "other: override\n",
+      "status": 0,
+      "outputJsonText": "{\n  \"value\": \"baseline\",\n  \"other\": \"override\"\n}\n",
+      "note": "The custom scalar tag is accepted; JSON observation retains the scalar value without the tag.",
+      "compatibilityConcern": true
+    },
+    {
+      "id": "multiple-documents",
+      "accepted": true,
+      "baselineYaml": "first: baseline\n---\nsecond: ignored\n",
+      "overrideYaml": "override: value\n",
+      "status": 0,
+      "outputJsonText": "{\n  \"first\": \"baseline\",\n  \"override\": \"value\"\n}\n{\n  \"second\": \"ignored\",\n  \"override\": \"value\"\n}\n",
+      "note": "The override is merged into each baseline document and two output documents are emitted.",
+      "compatibilityConcern": true
+    }
+  ]
+}

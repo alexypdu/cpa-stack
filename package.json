@@ -1,0 +1,47 @@
+{
+  "name": "cpa-stack",
+  "version": "0.0.0",
+  "private": true,
+  "bin": {
+    "cpa-stack": "./bin/cpa-stack.ts"
+  },
+  "type": "module",
+  "scripts": {
+    "generate": "node bin/cpa-stack.ts generate",
+    "sync": "node ./bin/cpa-stack.ts sync",
+    "test": "node --test test/*.test.ts",
+    "test:compose": "node --test test/integration/*.test.ts",
+    "restart": "node bin/cpa-stack.ts restart",
+    "typecheck": "tsc --noEmit",
+    "lint": "oxlint --deny-warnings bin src test",
+    "lint:fix": "pnpm run lint --fix",
+    "format": "oxfmt --write 'bin/**/*.ts' 'src/**/*.ts' 'test/**/*.ts' package.json tsconfig.json",
+    "format:check": "oxfmt --check 'bin/**/*.ts' 'src/**/*.ts' 'test/**/*.ts' package.json tsconfig.json",
+    "check": "pnpm run format:check && pnpm run lint && pnpm run typecheck && pnpm test && pnpm run test:compose",
+    "register": "pnpm add -g . --offline --ignore-scripts",
+    "prepare": "husky"
+  },
+  "dependencies": {
+    "deepmerge": "^4.3.1",
+    "yaml": "^2.8.1"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.1",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.5.1",
+    "oxfmt": "^0.67.0",
+    "oxlint": "^1.82.0",
+    "typescript": "^5.9.3"
+  },
+  "lint-staged": {
+    "{bin,src,test}/**/*.ts": [
+      "oxlint --fix --deny-warnings",
+      "oxfmt --write"
+    ],
+    "./{package,tsconfig}.json": "oxfmt --write"
+  },
+  "engines": {
+    "node": ">=24.12.0"
+  },
+  "packageManager": "pnpm@12.4.1"
+}
