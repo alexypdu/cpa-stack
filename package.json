@@ -12,7 +12,20 @@
   "scripts": {
     "test": "node --test test/*.test.ts",
     "test:compose": "node --test test/integration/*.test.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "lint": "oxlint --deny-warnings bin src test",
+    "lint:fix": "npm run lint -- --fix",
+    "format": "oxfmt --write 'bin/**/*.ts' 'src/**/*.ts' 'test/**/*.ts' package.json tsconfig.json",
+    "format:check": "oxfmt --check 'bin/**/*.ts' 'src/**/*.ts' 'test/**/*.ts' package.json tsconfig.json",
+    "check": "npm run format:check && npm run lint && npm run typecheck && npm test && npm run test:compose",
+    "prepare": "husky"
+  },
+  "lint-staged": {
+    "{bin,src,test}/**/*.ts": [
+      "oxlint --fix --deny-warnings",
+      "oxfmt --write"
+    ],
+    "./{package,tsconfig}.json": "oxfmt --write"
   },
   "dependencies": {
     "deepmerge": "^4.3.1",
@@ -20,6 +33,10 @@
   },
   "devDependencies": {
     "@types/node": "^24.10.1",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.5.1",
+    "oxfmt": "^0.67.0",
+    "oxlint": "^1.82.0",
     "typescript": "^5.9.3"
   }
 }

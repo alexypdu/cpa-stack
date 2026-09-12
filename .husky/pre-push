@@ -1,0 +1,7 @@
+if ! git diff --quiet || ! git diff --cached --quiet; then
+  printf '%s\n' \
+    "Push blocked: commit or stash tracked changes, then retry." >&2
+  exit 1
+fi
+
+npm run check
