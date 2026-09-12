@@ -141,7 +141,7 @@ test("sync adopts available releases and preserves Compose content", async (t) =
       "Upstream baseline: updated cpa/config.yaml.example.\n" +
       "Tracked artifact changed: docker-compose.yml.\n" +
       "Tracked artifact changed: cpa/config.yaml.example.\n" +
-      "Next: review the diff, then run cpa-stack generate before restarting the stack.\n",
+      "Next: review the diff, then run cpa-stack generate, then cpa-stack bounce.\n",
   );
   assert.equal(
     await readFile(join(fixture.checkout.root, "docker-compose.yml"), "utf8"),
@@ -309,7 +309,7 @@ test("sync reports a baseline-only change and requests regeneration", async (t) 
       "Keeper: selected v1.0.0 (unchanged).\n" +
       "Upstream baseline: updated cpa/config.yaml.example.\n" +
       "Tracked artifact changed: cpa/config.yaml.example.\n" +
-      "Next: review the diff, then run cpa-stack generate before restarting the stack.\n",
+      "Next: review the diff, then run cpa-stack generate, then cpa-stack bounce.\n",
   );
   assert.equal(
     fixture.checkout.runGit(["diff", "--quiet", "--", "docker-compose.yml"])

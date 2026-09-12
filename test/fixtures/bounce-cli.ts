@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 
+import { bounceOperation } from "../../src/bounce.ts";
 import { executeCli, type Operation } from "../../src/cli.ts";
 import { OperationalError } from "../../src/errors.ts";
 import { resolveRepositoryPaths } from "../../src/paths.ts";
-import { restartOperation } from "../../src/restart.ts";
 
 const paths = resolveRepositoryPaths(new URL("../..", import.meta.url));
 const pendingOperation: Operation = async () => {
@@ -16,6 +16,6 @@ process.exitCode = await executeCli({
   operations: {
     sync: pendingOperation,
     generate: pendingOperation,
-    restart: restartOperation,
+    bounce: bounceOperation,
   },
 });

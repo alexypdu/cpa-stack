@@ -45,7 +45,7 @@ process.exitCode = await executeCli({
     generate: async () => {
       throw new OperationalError("synthetic generation failure");
     },
-    restart: async ({ lifecycle, paths: operationPaths }) => {
+    bounce: async ({ lifecycle, paths: operationPaths }) => {
       const executable = process.env.FIXTURE_EXECUTABLE;
       const args = JSON.parse(process.env.FIXTURE_ARGS ?? "[]") as string[];
       if (executable === undefined) {

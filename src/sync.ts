@@ -481,7 +481,7 @@ export const syncOperation: Operation = async ({ lifecycle, paths }) => {
   if (baselineChanged) {
     process.stdout.write(
       "Tracked artifact changed: cpa/config.yaml.example.\n" +
-        "Next: review the diff, then run cpa-stack generate before restarting the stack.\n",
+        "Next: review the diff, then run cpa-stack generate, then cpa-stack bounce.\n",
     );
   }
 

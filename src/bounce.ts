@@ -33,7 +33,7 @@ async function runRequiredCommand(
   return result;
 }
 
-export const restartOperation: Operation = async ({ lifecycle, paths }) => {
+export const bounceOperation: Operation = async ({ lifecycle, paths }) => {
   if (!(await isFile(paths.compose))) {
     throw new OperationalError(`required file not found: ${paths.compose}`);
   }
