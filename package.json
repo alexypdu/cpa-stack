@@ -2,9 +2,6 @@
   "name": "cpa-stack",
   "version": "0.0.0",
   "private": true,
-  "bin": {
-    "cpa-stack": "./bin/cpa-stack.ts"
-  },
   "type": "module",
   "scripts": {
     "generate": "node bin/cpa-stack.ts generate",
@@ -18,7 +15,6 @@
     "format": "oxfmt --write 'bin/**/*.ts' 'src/**/*.ts' 'test/**/*.ts' package.json tsconfig.json",
     "format:check": "oxfmt --check 'bin/**/*.ts' 'src/**/*.ts' 'test/**/*.ts' package.json tsconfig.json",
     "check": "pnpm run format:check && pnpm run lint && pnpm run typecheck && pnpm test && pnpm run test:compose",
-    "register": "pnpm add -g . --offline --ignore-scripts",
     "prepare": "husky"
   },
   "dependencies": {
