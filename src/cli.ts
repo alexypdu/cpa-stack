@@ -1,10 +1,13 @@
+import { readClientApiKey } from "./client-api-key.ts";
 import { OperationalError } from "./errors.ts";
 import { Lifecycle } from "./lifecycle.ts";
 import type { RepositoryPaths } from "./paths.ts";
 import { signalExitStatuses } from "./signals.ts";
 
 const usage =
-  "Usage: cpa-stack {sync|generate|bounce}\nRequires Node.js >=24.12.0.\n";
+  "Usage: cpa-stack {sync|generate|bounce}\n" +
+  "       cpa-stack client-api-key [client]\n" +
+  "Requires Node.js >=24.12.0.\n";
 
 type CommandName = "sync" | "generate" | "bounce";
 
@@ -27,11 +30,15 @@ function isCommandName(value: string): value is CommandName {
 }
 
 export async function executeCli(options: CliOptions): Promise<number> {
-  const [command] = options.args;
+  const [command, client] = options.args;
   if (
-    options.args.length !== 1 ||
     command === undefined ||
-    !isCommandName(command)
+    (!isCommandName(command) && command !== "client-api-key") ||
+    (command === "client-api-key"
+      ? options.args.length > 2 ||
+        (client !== undefined &&
+          client.match(/^[a-z0-9]+(?:-[a-z0-9]+)*/)?.[0] !== client)
+      : options.args.length !== 1)
   ) {
     process.stderr.write(usage);
     return 2;
@@ -55,7 +62,11 @@ export async function executeCli(options: CliOptions): Promise<number> {
   );
 
   try {
-    await options.operations[command]({ lifecycle, paths: options.paths });
+    if (command === "client-api-key") {
+      process.stdout.write(await readClientApiKey(options.paths, client));
+    } else {
+      await options.operations[command]({ lifecycle, paths: options.paths });
+    }
     status = signalStatus ?? 0;
   } catch (error) {
     if (signalStatus !== undefined) {

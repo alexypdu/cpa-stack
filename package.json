@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "generate": "node bin/cpa-stack.ts generate",
+    "client-api-key": "node bin/cpa-stack.ts client-api-key",
     "sync": "node ./bin/cpa-stack.ts sync",
     "test": "node --test test/*.test.ts",
     "test:compose": "node --test test/integration/*.test.ts",
