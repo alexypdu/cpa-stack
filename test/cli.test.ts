@@ -86,7 +86,9 @@ test("invalid usage prints help to stderr and exits 2", async (t) => {
     assert.equal(result.stdout, "");
     assert.equal(
       result.stderr,
-      "Usage: cpa-stack {sync|generate|bounce}\nRequires Node.js >=24.12.0.\n",
+      "Usage: cpa-stack {sync|generate|bounce}\n" +
+        "       cpa-stack client-api-key [client]\n" +
+        "Requires Node.js >=24.12.0.\n",
     );
   }
 });

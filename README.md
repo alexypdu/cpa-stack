@@ -46,6 +46,10 @@ Run the setup commands from the repository root.
    CPA_MANAGEMENT_KEY='replace-with-a-strong-management-key'
    CPA_KEEPER_LOGIN_PASSWORD='replace-with-a-strong-login-password'
    CPA_CLIENT_API_KEY='replace-with-a-strong-client-api-key'
+   CPA_CLIENT_API_KEY_CLAUDE_CODE='replace-with-a-strong-claude-code-client-api-key'
+   CPA_CLIENT_API_KEY_CODEX='replace-with-a-strong-codex-client-api-key'
+   CPA_CLIENT_API_KEY_OPENCODE='replace-with-a-strong-opencode-client-api-key'
+   CPA_CLIENT_API_KEY_PI='replace-with-a-strong-pi-client-api-key'
    ```
 
    Add provider credentials or OAuth records to `cpa/auths/`. Refer to the [CPA documentation](https://github.com/router-for-me/CLIProxyAPI) for authentication instructions.
@@ -81,6 +85,39 @@ After you change `.env` or the stack override, run `generate`, then `bounce`.
 After release sync, review the changes. If the upstream baseline changed, run `generate`, then `bounce`.
 
 **Bounce limit:** Success means that neither service was reported as exited immediately after recreation. It does not prove health or readiness.
+
+## Read a client API key
+
+Read a key from this repository's `.env`:
+
+| Command | Variable |
+| --- | --- |
+| `pnpm --silent run client-api-key` | `CPA_CLIENT_API_KEY` |
+| `pnpm --silent run client-api-key claude-code` | `CPA_CLIENT_API_KEY_CLAUDE_CODE` |
+| `pnpm --silent run client-api-key pi` | `CPA_CLIENT_API_KEY_PI` |
+
+Use lowercase client names with hyphens. To add `new-tool`, define `CPA_CLIENT_API_KEY_NEW_TOOL` in `.env`. Add its reference to `api-keys` in the stack override.
+
+Use literal key values. The command ignores inherited environment values. It returns only the selected key. A missing or empty key causes an error, not a switch to the generic key.
+
+### Use from another directory
+
+Add this function to your shell configuration. Set the path to your checkout:
+
+```sh
+cpa_client_api_key() {
+    pnpm --dir "$HOME/repos/personal/cpa-stack" --silent run client-api-key "$@"
+}
+```
+
+Node.js and pnpm must be available in the calling shell.
+
+Inside an agent launch function, capture the key and stop on failure:
+
+```sh
+local client_api_key
+client_api_key="$(cpa_client_api_key claude-code)" || return $?
+```
 
 ## Architecture
 
