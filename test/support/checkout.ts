@@ -69,6 +69,7 @@ export interface TestCheckout {
   root: string;
   outsideRoot: string;
   runCli(args: string[], env?: NodeJS.ProcessEnv): SpawnSyncReturns<string>;
+  runGit(args: string[]): SpawnSyncReturns<string>;
   runLegacyCli(
     args: string[],
     env?: NodeJS.ProcessEnv,
@@ -160,6 +161,13 @@ export async function createTestCheckout(): Promise<TestCheckout> {
           env: isolatedGitEnvironment(env),
         },
       );
+    },
+    runGit(args) {
+      return spawnSync("git", args, {
+        cwd: root,
+        encoding: "utf8",
+        env: isolatedGitEnvironment(),
+      });
     },
     runLegacyCli(args, env = {}) {
       return spawnSync(join(root, "cpa-stack"), args, {
