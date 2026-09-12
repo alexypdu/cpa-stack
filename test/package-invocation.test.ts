@@ -1,19 +1,63 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import { access, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import test from "node:test";
 
+import { createTestCheckout } from "./support/checkout.ts";
 import { createPackageFixture } from "./support/package.ts";
+
+test("global package installation works without npm", async (t) => {
+  const checkout = await createTestCheckout();
+  t.after(() => checkout.cleanup());
+  const npm = await checkout.installCommand(
+    "npm",
+    '#!/bin/sh\nprintf "npm must not run\\n" >&2\nexit 97\n',
+  );
+  const helperUrl = new URL("./support/package.ts", import.meta.url).href;
+  const result = spawnSync(
+    process.execPath,
+    [
+      "--input-type=module",
+      "-e",
+      `
+    import { createPackageFixture } from ${JSON.stringify(helperUrl)};
+    const fixture = await createPackageFixture();
+    try {
+      const result = fixture.runLinked([]);
+      process.stdout.write(result.stdout);
+      process.stderr.write(result.stderr);
+      process.exitCode = result.status ?? 1;
+    } finally {
+      await fixture.cleanup();
+    }
+  `,
+    ],
+    {
+      cwd: checkout.outsideRoot,
+      encoding: "utf8",
+      env: { ...process.env, PATH: `${dirname(npm)}:${process.env.PATH}` },
+      timeout: 30_000,
+    },
+  );
+
+  assert.equal(result.status, 2, result.stderr);
+  assert.equal(result.stdout, "");
+  assert.equal(
+    result.stderr,
+    "Usage: cpa-stack {sync|generate|restart}\nRequires Node.js >=24.12.0.\n",
+  );
+});
 
 function runOperation(
   fixture: Awaited<ReturnType<typeof createPackageFixture>>,
-  invocation: "npm script" | "linked executable",
+  invocation: "pnpm script" | "linked executable",
   name: "sync" | "generate" | "restart",
   env: NodeJS.ProcessEnv,
 ) {
   return invocation === "linked executable"
     ? fixture.runLinked([name], env)
-    : fixture.runNpm(["--prefix", fixture.checkout.root, "run", name], env);
+    : fixture.runPnpm(["--dir", fixture.checkout.root, "run", name], env);
 }
 
 async function poisonYq(
@@ -26,7 +70,7 @@ async function poisonYq(
   return { PATH: `${dirname(yq)}:${process.env.PATH}` };
 }
 
-test("the npm-linked executable reports usage outside its checkout", async (t) => {
+test("the pnpm-installed executable reports usage outside its checkout", async (t) => {
   const fixture = await createPackageFixture();
   t.after(() => fixture.cleanup());
 
@@ -41,25 +85,25 @@ test("the npm-linked executable reports usage outside its checkout", async (t) =
   await fixture.assertCheckoutDependenciesUnchanged();
 });
 
-test("the npm-linked executable reports an operational error outside its checkout", async (t) => {
+test("the pnpm-installed executable reports an operational error outside its checkout", async (t) => {
   const fixture = await createPackageFixture();
   t.after(() => fixture.cleanup());
-  const yq = await fixture.checkout.installCommand(
-    "yq",
-    "#!/bin/sh\nexit 97\n",
+  const docker = await fixture.checkout.installCommand(
+    "docker",
+    "#!/bin/sh\nexit 1\n",
   );
 
   const result = fixture.runLinked(["generate"], {
-    PATH: `${dirname(yq)}:${dirname(process.execPath)}:/nonexistent`,
+    PATH: `${dirname(docker)}:${process.env.PATH}`,
   });
 
   assert.equal(result.status, 1);
   assert.equal(result.stdout, "");
-  assert.equal(result.stderr, "cpa-stack: Docker with Compose is required\n");
+  assert.equal(result.stderr, "cpa-stack: Docker Compose is required\n");
   await fixture.assertCheckoutDependenciesUnchanged();
 });
 
-for (const invocation of ["npm script", "linked executable"] as const) {
+for (const invocation of ["pnpm script", "linked executable"] as const) {
   test(`${invocation}: sync updates its checkout without chaining operations`, async (t) => {
     const fixture = await createPackageFixture();
     t.after(() => fixture.cleanup());
@@ -98,7 +142,10 @@ appendFileSync(process.env.PACKAGE_COMMAND_LOG, JSON.stringify(["docker", ...pro
     assert.equal(result.status, 0, result.stderr || result.stdout);
     assert.match(result.stdout, /CPA: selected v2\.0\.0 \(updated\)\./);
     assert.match(result.stdout, /Keeper: selected v2\.0\.0 \(updated\)\./);
-    assert.equal(result.stderr, "");
+    assert.equal(
+      result.stderr,
+      invocation === "pnpm script" ? "$ node ./bin/cpa-stack.ts sync\n" : "",
+    );
     assert.match(
       await readFile(join(fixture.checkout.root, "docker-compose.yml"), "utf8"),
       /cli-proxy-api:v2\.0\.0[\s\S]*cpa-usage-keeper:v2\.0\.0/,
@@ -166,7 +213,10 @@ if (args.at(-1) === "config") {
 
     assert.equal(result.status, 0, result.stderr || result.stdout);
     assert.match(result.stdout, /Generated cpa\/config\.yaml with mode 0600\./);
-    assert.equal(result.stderr, "");
+    assert.equal(
+      result.stderr,
+      invocation === "pnpm script" ? "$ node bin/cpa-stack.ts generate\n" : "",
+    );
     assert.equal(
       await readFile(join(fixture.checkout.root, "cpa/config.yaml"), "utf8"),
       "port: 8317\ndebug: true\n",
@@ -212,7 +262,10 @@ appendFileSync(process.env.PACKAGE_COMMAND_LOG, JSON.stringify(process.argv.slic
       result.stdout,
       /Recreated CPA and Keeper; no immediate service exit was observed\./,
     );
-    assert.equal(result.stderr, "");
+    assert.equal(
+      result.stderr,
+      invocation === "pnpm script" ? "$ node bin/cpa-stack.ts restart\n" : "",
+    );
     assert.deepEqual(
       (await readFile(commandLog, "utf8"))
         .trim()
