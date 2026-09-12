@@ -6,6 +6,8 @@ Commit messages must follow the [Conventional Commits](https://www.conventionalc
 
 When writing a pull request description, use the `/show-me` skill to identify review aids that make the change easier to understand. Add useful pseudocode, Mermaid diagrams, call trees, diffs, or other focused visuals to the description. Do not use `/show-me` to generate the complete description. Write all prose in ASD-STE100 Simplified Technical English.
 
+When a pull request completes an issue, use a supported GitHub closing keyword such as `Closes #<number>`, `Fixes #<number>`, or `Resolves #<number>`. If the pull request targets a non-default integration branch, verify the issue state after the merge. Close the issue manually if GitHub leaves it open.
+
 ## Agent skills
 
 ### Issue tracker
