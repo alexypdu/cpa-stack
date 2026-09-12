@@ -1,0 +1,144 @@
+import { chmod, cp, mkdtemp, mkdir, realpath, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+import {
+  spawn,
+  spawnSync,
+  type ChildProcessWithoutNullStreams,
+  type SpawnSyncReturns,
+} from "node:child_process";
+
+const sourceRoot = fileURLToPath(new URL("../..", import.meta.url));
+
+export interface TestCheckout {
+  root: string;
+  outsideRoot: string;
+  runCli(args: string[]): SpawnSyncReturns<string>;
+  runLegacyCli(
+    args: string[],
+    env?: NodeJS.ProcessEnv,
+  ): SpawnSyncReturns<string>;
+  runFixtureCli(
+    args: string[],
+    env?: NodeJS.ProcessEnv,
+  ): SpawnSyncReturns<string>;
+  startFixtureCli(
+    args: string[],
+    env?: NodeJS.ProcessEnv,
+  ): ChildProcessWithoutNullStreams;
+  installCommand(name: string, source: string): Promise<string>;
+  replaceLegacyCli(source: string): Promise<void>;
+  cleanup(): Promise<void>;
+}
+
+export async function createTestCheckout(): Promise<TestCheckout> {
+  const workspace = await realpath(
+    await mkdtemp(join(tmpdir(), "cpa-stack-test-")),
+  );
+  const root = join(workspace, "checkout");
+  const outsideRoot = join(workspace, "outside");
+
+  await mkdir(root, { recursive: true });
+  await mkdir(outsideRoot, { recursive: true });
+
+  for (const path of [
+    "bin",
+    "src",
+    "test/fixtures",
+    "cpa-stack",
+    "package.json",
+    ".gitignore",
+  ]) {
+    await cp(join(sourceRoot, path), join(root, path), { recursive: true });
+  }
+
+  await mkdir(join(root, "cpa"), { recursive: true });
+  await writeFile(
+    join(root, ".env"),
+    "CPA_MANAGEMENT_KEY=synthetic-management-key\n" +
+      "CPA_KEEPER_LOGIN_PASSWORD=synthetic-login-password\n" +
+      "CPA_CLIENT_API_KEY=synthetic-client-key\n",
+  );
+  await writeFile(
+    join(root, "docker-compose.yml"),
+    "services:\n" +
+      "  cli-proxy-api:\n" +
+      "    image: eceasy/cli-proxy-api:v1.0.0\n" +
+      "  cpa-usage-keeper:\n" +
+      "    image: ghcr.io/willxup/cpa-usage-keeper:v1.0.0\n",
+  );
+  await writeFile(join(root, "cpa/config.yaml.example"), "port: 8317\n");
+  await writeFile(join(root, "cpa/config.yaml.override"), "debug: false\n");
+
+  for (const args of [
+    ["init", "-q"],
+    ["config", "user.name", "CPA Stack Tests"],
+    ["config", "user.email", "tests@example.invalid"],
+    ["add", "."],
+    ["commit", "-qm", "test: initialize synthetic checkout"],
+  ]) {
+    const result = spawnSync("git", args, { cwd: root, encoding: "utf8" });
+    if (result.status !== 0) {
+      throw new Error(`could not initialize test checkout: ${result.stderr}`);
+    }
+  }
+
+  return {
+    root,
+    outsideRoot,
+    runCli(args) {
+      return spawnSync(process.execPath, [join(root, "bin/cpa-stack.ts"), ...args], {
+        cwd: outsideRoot,
+        encoding: "utf8",
+        env: { ...process.env },
+      });
+    },
+    runLegacyCli(args, env = {}) {
+      return spawnSync(join(root, "cpa-stack"), args, {
+        cwd: outsideRoot,
+        encoding: "utf8",
+        env: { ...process.env, ...env },
+      });
+    },
+    runFixtureCli(args, env = {}) {
+      return spawnSync(
+        process.execPath,
+        [join(root, "test/fixtures/fixture-cli.ts"), ...args],
+        {
+          cwd: outsideRoot,
+          encoding: "utf8",
+          env: { ...process.env, ...env },
+        },
+      );
+    },
+    startFixtureCli(args, env = {}) {
+      const child = spawn(
+        process.execPath,
+        [join(root, "test/fixtures/fixture-cli.ts"), ...args],
+        {
+          cwd: outsideRoot,
+          env: { ...process.env, ...env },
+          stdio: ["pipe", "pipe", "pipe"],
+        },
+      );
+      child.stdin.end();
+      return child;
+    },
+    async installCommand(name, source) {
+      const path = join(root, "test-bin", name);
+      await mkdir(dirname(path), { recursive: true });
+      await writeFile(path, source);
+      await chmod(path, 0o755);
+      return path;
+    },
+    async replaceLegacyCli(source) {
+      const path = join(root, "cpa-stack");
+      await writeFile(path, source);
+      await chmod(path, 0o755);
+    },
+    async cleanup() {
+      await rm(workspace, { recursive: true, force: true });
+    },
+  };
+}

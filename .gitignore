@@ -29,6 +29,9 @@ cpa/**/*.cds
 # Usage Keeper runtime data
 keeper/
 
+# Node.js dependencies
+node_modules/
+
 # General logs / caches
 logs/
 *.log

@@ -1,0 +1,25 @@
+{
+  "name": "cpa-stack",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "cpa-stack": "./bin/cpa-stack.ts"
+  },
+  "engines": {
+    "node": ">=24.12.0"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.ts",
+    "test:compose": "node --test test/integration/*.test.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "deepmerge": "^4.3.1",
+    "yaml": "^2.8.1"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.1",
+    "typescript": "^5.9.3"
+  }
+}
