@@ -1,6 +1,6 @@
 services:
   cli-proxy-api:
-    image: eceasy/cli-proxy-api:v7.2.159
+    image: eceasy/cli-proxy-api:v7.3.1
     container_name: cli-proxy-api
     restart: unless-stopped
     ports:
