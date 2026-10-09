@@ -1,14 +1,20 @@
-remote-management:
+config-version: 8
+
+management:
   allow-remote: true
   secret-key: ${CPA_MANAGEMENT_KEY:?CPA_MANAGEMENT_KEY must be set}
 
-auth-dir: "/CLIProxyAPI/.cli-proxy-api"
+oauth:
+  auth-dir: "/CLIProxyAPI/.cli-proxy-api"
 
-api-keys:
-  - ${CPA_CLIENT_API_KEY:?CPA_CLIENT_API_KEY must be set}
-  - ${CPA_CLIENT_API_KEY_CLAUDE_CODE:?CPA_CLIENT_API_KEY_CLAUDE_CODE must be set}
-  - ${CPA_CLIENT_API_KEY_CODEX:?CPA_CLIENT_API_KEY_CODEX must be set}
-  - ${CPA_CLIENT_API_KEY_OPENCODE:?CPA_CLIENT_API_KEY_OPENCODE must be set}
-  - ${CPA_CLIENT_API_KEY_PI:?CPA_CLIENT_API_KEY_PI must be set}
+access:
+  api-keys:
+    - ${CPA_CLIENT_API_KEY:?CPA_CLIENT_API_KEY must be set}
+    - ${CPA_CLIENT_API_KEY_CLAUDE_CODE:?CPA_CLIENT_API_KEY_CLAUDE_CODE must be set}
+    - ${CPA_CLIENT_API_KEY_CODEX:?CPA_CLIENT_API_KEY_CODEX must be set}
+    - ${CPA_CLIENT_API_KEY_OPENCODE:?CPA_CLIENT_API_KEY_OPENCODE must be set}
+    - ${CPA_CLIENT_API_KEY_PI:?CPA_CLIENT_API_KEY_PI must be set}
 
-usage-statistics-enabled: true
+observability:
+  usage:
+    usage-statistics-enabled: true

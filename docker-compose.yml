@@ -1,6 +1,6 @@
 services:
   cli-proxy-api:
-    image: eceasy/cli-proxy-api:v7.3.6
+    image: eceasy/cli-proxy-api:v8.0.23
     container_name: cli-proxy-api
     restart: unless-stopped
     ports:
@@ -15,7 +15,7 @@ services:
       - cpa-network
 
   cpa-usage-keeper:
-    image: ghcr.io/willxup/cpa-usage-keeper:v1.15.4
+    image: ghcr.io/willxup/cpa-usage-keeper:v1.15.10
     container_name: cpa-usage-keeper
     restart: unless-stopped
     depends_on:
@@ -30,9 +30,14 @@ services:
       AUTH_ENABLED: 'true'
       LOGIN_PASSWORD: ${CPA_KEEPER_LOGIN_PASSWORD:?CPA_KEEPER_LOGIN_PASSWORD must be set}
     volumes:
-      - ./keeper:/data
+      - keeper-data:/data
     networks:
       - cpa-network
+
+volumes:
+  keeper-data:
+    name: cpa-stack-keeper-data
+    external: true
 
 networks:
   cpa-network:

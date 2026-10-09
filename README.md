@@ -37,7 +37,8 @@ Run the setup commands from the repository root.
    ```sh
    cp .env.example .env
    cp cpa/config.yaml.override.example cpa/config.yaml.override
-   mkdir -p cpa/auths cpa/logs cpa/plugins keeper
+   mkdir -p cpa/auths cpa/logs cpa/plugins
+   docker volume create cpa-stack-keeper-data
    ```
 
 3. Configure credentials. Edit `.env` and replace each placeholder:
@@ -96,7 +97,7 @@ Read a key from this repository's `.env`:
 | `pnpm --silent run client-api-key claude-code` | `CPA_CLIENT_API_KEY_CLAUDE_CODE` |
 | `pnpm --silent run client-api-key pi` | `CPA_CLIENT_API_KEY_PI` |
 
-Use lowercase client names with hyphens. To add `new-tool`, define `CPA_CLIENT_API_KEY_NEW_TOOL` in `.env`. Add its reference to `api-keys` in the stack override.
+Use lowercase client names with hyphens. To add `new-tool`, define `CPA_CLIENT_API_KEY_NEW_TOOL` in `.env`. Add its reference to `access.api-keys` in the stack override.
 
 Use literal key values. The command ignores inherited environment values. It returns only the selected key. A missing or empty key causes an error, not a switch to the generic key.
 
@@ -141,17 +142,18 @@ CPA also uses `127.0.0.1:1455` for the Codex OAuth callback.
 ├── .env.example                     Template for local secrets
 ├── .env                             Local secrets
 ├── docker-compose.yml               Services, image pins, ports, mounts, and network
-├── cpa/
-│   ├── config.yaml.example          Upstream baseline
-│   ├── config.yaml.override.example Stack override template
-│   ├── config.yaml.override         Local stack override
-│   ├── config.yaml                  Generated effective config
-│   ├── config.yaml.backup           Previous effective config
-│   ├── auths/                       Provider credentials and OAuth records
-│   ├── logs/                        CPA logs
-│   └── plugins/                     Optional plugins
-└── keeper/                          Stored Keeper data
+└── cpa/
+    ├── config.yaml.example          Upstream baseline
+    ├── config.yaml.override.example Stack override template
+    ├── config.yaml.override         Local stack override
+    ├── config.yaml                  Generated effective config
+    ├── config.yaml.backup           Previous effective config
+    ├── auths/                       Provider credentials and OAuth records
+    ├── logs/                        CPA logs
+    └── plugins/                     Optional plugins
 ```
+
+Keeper stores its database, backups, and logs in the external Docker volume `cpa-stack-keeper-data`, mounted at `/data`. The volume survives container replacement, image updates, and `docker compose down --volumes`. Create it before the first start. Do not remove it or reset Docker storage unless you have a separate backup. Keeper's internal backups share this volume; they do not protect against deletion of the volume.
 
 Edit `.env` and the stack override. Do not edit the effective config directly.
 
