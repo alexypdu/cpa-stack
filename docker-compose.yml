@@ -37,7 +37,6 @@ services:
 volumes:
   keeper-data:
     name: cpa-stack-keeper-data
-    external: true
 
 networks:
   cpa-network:

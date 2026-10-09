@@ -6,19 +6,20 @@ CPA sends client requests to an upstream provider. Keeper reads the usage feed f
 
 ## Prerequisites
 
-- macOS with Node.js 24 LTS, version 24.12.0 or later.
+- macOS.
+- Node.js 24 LTS, version 24.12.0 or later.
 - pnpm 12.4.1.
 - Docker with Compose and a running Docker environment, such as [Colima](https://github.com/abiosoft/colima).
 - Git and curl.
 
-To install the Node.js and pnpm versions pinned in `mise.toml`, install and [activate mise](https://mise.jdx.dev/getting-started.html), then run from the repository root:
+To use the versions in `mise.toml`, install and [activate mise](https://mise.jdx.dev/getting-started.html). Run these commands from the repository root:
 
 ```sh
 mise trust
 mise install
 ```
 
-Docker with Compose, Git, and curl remain system prerequisites.
+Install Docker with Compose, Git, and curl separately.
 
 ## Quick start
 
@@ -30,18 +31,22 @@ Run the setup commands from the repository root.
    pnpm i
    ```
 
-2. Create the local inputs and state directories.
+2. Create the local configuration files.
 
-   **Existing installation:** Keep your `.env` and `cpa/config.yaml.override` files. Do not copy the templates over them.
+   Keep existing `.env` and `cpa/config.yaml.override` files. Copy each template only when its local file is absent.
 
    ```sh
    cp .env.example .env
    cp cpa/config.yaml.override.example cpa/config.yaml.override
-   mkdir -p cpa/auths cpa/logs cpa/plugins
-   docker volume create cpa-stack-keeper-data
    ```
 
-3. Configure credentials. Edit `.env` and replace each placeholder:
+3. Create the CPA state directories:
+
+   ```sh
+   mkdir -p cpa/auths cpa/logs cpa/plugins
+   ```
+
+4. Edit `.env` and replace each credential placeholder:
 
    ```dotenv
    CPA_MANAGEMENT_KEY='replace-with-a-strong-management-key'
@@ -55,13 +60,13 @@ Run the setup commands from the repository root.
 
    Add provider credentials or OAuth records to `cpa/auths/`. Refer to the [CPA documentation](https://github.com/router-for-me/CLIProxyAPI) for authentication instructions.
 
-4. Generate the effective config:
+5. Generate the effective configuration:
 
    ```sh
    pnpm generate
    ```
 
-5. Start CPA and Keeper:
+6. Start CPA and Keeper:
 
    ```sh
    pnpm bounce
@@ -73,19 +78,19 @@ Open [Keeper](http://127.0.0.1:8318). Sign in with the value of `CPA_KEEPER_LOGI
 
 Run these commands from the repository root.
 
-| Command | Operation | Result |
-| --- | --- | --- |
-| `pnpm sync` | Release sync | Update image pins for available stable releases and the matching upstream baseline. |
-| `pnpm generate` | Config generation | Apply the stack override to the upstream baseline. Write the effective config. |
-| `pnpm bounce` | Stack bounce | Recreate CPA and Keeper with the current image pins and effective config. |
+| Command | Result |
+| --- | --- |
+| `pnpm sync` | Update image pins to available stable releases and refresh the matching upstream baseline. |
+| `pnpm generate` | Apply the stack override to the upstream baseline and write the effective configuration. |
+| `pnpm bounce` | Recreate CPA and Keeper with the current image pins and effective configuration. |
 
-Run each operation explicitly. Release sync is optional for the first start.
+Run each command explicitly. Release sync is optional for the first start.
 
-After you change `.env` or the stack override, run `generate`, then `bounce`.
+After you change `.env` or the stack override, run `pnpm generate`, then `pnpm bounce`.
 
-After release sync, review the changes. If the upstream baseline changed, run `generate`, then `bounce`.
+After `pnpm sync`, review the changes. If the upstream baseline changes, run `pnpm generate`, then `pnpm bounce`.
 
-**Bounce limit:** Success means that neither service was reported as exited immediately after recreation. It does not prove health or readiness.
+**Bounce limit:** Success means neither service reports an immediate exit after recreation. It does not prove health or readiness.
 
 ## Read a client API key
 
@@ -99,7 +104,7 @@ Read a key from this repository's `.env`:
 
 Use lowercase client names with hyphens. To add `new-tool`, define `CPA_CLIENT_API_KEY_NEW_TOOL` in `.env`. Add its reference to `access.api-keys` in the stack override.
 
-Use literal key values. The command ignores inherited environment values. It returns only the selected key. A missing or empty key causes an error, not a switch to the generic key.
+Use literal key values. The command reads `.env`, not inherited environment values. It returns only the selected key. A missing or empty key causes an error. The command does not substitute the generic key.
 
 ### Use from another directory
 
@@ -131,11 +136,11 @@ flowchart LR
     Browser["Web browser"] -->|Keeper login password| Keeper
 ```
 
-CPA and Keeper use a private Compose network. Published ports use `127.0.0.1` and are available only on the local machine by default.
+CPA and Keeper use a private Compose network. Published ports bind to `127.0.0.1`. By default, only the local machine can access these ports.
 
 CPA also uses `127.0.0.1:1455` for the Codex OAuth callback.
 
-## Repository files
+## Configuration files
 
 ```text
 .
@@ -146,15 +151,23 @@ CPA also uses `127.0.0.1:1455` for the Codex OAuth callback.
     ├── config.yaml.example          Upstream baseline
     ├── config.yaml.override.example Stack override template
     ├── config.yaml.override         Local stack override
-    ├── config.yaml                  Generated effective config
-    ├── config.yaml.backup           Previous effective config
+    ├── config.yaml                  Generated effective configuration
+    ├── config.yaml.backup           Previous effective configuration
     ├── auths/                       Provider credentials and OAuth records
     ├── logs/                        CPA logs
     └── plugins/                     Optional plugins
 ```
 
-Keeper stores its database, backups, and logs in the external Docker volume `cpa-stack-keeper-data`, mounted at `/data`. The volume survives container replacement, image updates, and `docker compose down --volumes`. Create it before the first start. Do not remove it or reset Docker storage unless you have a separate backup. Keeper's internal backups share this volume; they do not protect against deletion of the volume.
+Edit `.env` and the stack override. Do not edit the effective configuration directly.
 
-Edit `.env` and the stack override. Do not edit the effective config directly.
+Git does not track local secrets, the stack override, generated configuration, or state directories. Keep local secrets private. Keep state directories when you update the stack.
 
-Git does not track local secrets, the stack override, generated config, or state directories. Keep local secrets private. Keep state directories when you update the stack.
+## Keeper storage
+
+Keeper stores its database, backups, and logs in the Docker volume `cpa-stack-keeper-data`. Compose mounts this volume at `/data`.
+
+Compose creates the volume at startup or uses the existing volume. The volume survives container replacement, image updates, and `docker compose down`.
+
+**Data deletion:** `docker compose down --volumes` deletes the Keeper data volume. Keep a separate backup before running this command, removing the volume, or resetting Docker storage.
+
+Keeper's internal backups share the data volume. They do not protect against deletion of the volume.
